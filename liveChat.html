@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport"content="width=device-width, initial-scale=1"/>
+<title>Live chat group </title>    
+<style>
+
+:root{--sky:#c8edfd;--dark:#434343;--gray:#505050}
+*{box-sizing:border-box}
+body{margin:0;background:#f7f9fb;font-family:Arial,sans-serif;color:#111}
+.stage{position:relative;max-width:1340px;height:760px;margin:16px auto;padding:0 16px}
+.header-card{position:absolute;left:-20px;top:-13px;width:1266px;height:166px;background:#d1cfcf;border-radius:26px}
+.title{position:absolute;left:95px;top:40px;margin:0;font-size:45px;font-weight:bold}
+.back{position:absolute;left:20px;top:50px;width:69px;height:66px;border:0;border-radius:10px;background:#a8a8a8;display:grid;place-items:center}
+.back svg{width:21px;height:21px;fill:#000}
+.support{position:absolute;left:1293px;top:18px;width:101px;height:131px;border:0;border-radius:8px;background:#fff;display:grid;place-items:center}
+.support svg{width:71px;height:71px;fill:#000}
+.support-label{position:absolute;left:1305px;top:155px;font-size:24px;color:#505050}
+.passengers-label{position:absolute;left:582px;top:71px;font-size:24px;color:#000}
+.pod.big{position:absolute;width:120px;height:120px;border-radius:50%;background:#434343}
+.pod.small{position:absolute;width:100px;height:100px;border-radius:50%;background:#c8edfd}
+.p1.big{left:787px;top:23px}.p1.small{left:797px;top:33px}
+.p2.big{left:917px;top:23px}.p2.small{left:927px;top:33px}
+.p3.big{left:1057px;top:20px}.p3.small{left:1067px;top:30px}
+.avatar-icon{position:absolute;width:99px;height:102px;fill:#505050;display:block;z-index:2}
+.driver-card{position:absolute;left:-44px;top:133px;width:415px;height:138px;background:var(--sky);border-radius:26px}
+.driver-avatar-wrap{position:absolute;left:33px;top:147px;width:120px;height:120px;border-radius:50%;background:#434343}
+.driver-avatar{position:absolute;left:43px;top:158px;width:100px;height:100px;border-radius:50%;background:#d1cfcf}
+.driver-icon{position:absolute;left:43px;top:153px;width:99px;height:102px;fill:#505050}
+.driver-name{position:absolute;left:170px;top:165px;font-size:24px;color:#505050}
+.driver-status{position:absolute;left:170px;top:200px;font-size:24px;color:#000}
+.input-bar-bg{position:absolute;left:107px;top:481px;width:1139px;height:66px;background:#c8edfd;border-radius:33px}
+.plus-wrap{position:absolute;left:12px;top:481px;width:70px;height:70px;background:#c8edfd;border-radius:50%}
+.plus{position:absolute;left:20px;top:494px;width:54px;height:48px;border-radius:25px;border:0;background:#c8edfd;color:#434343;font-size:24px}
+.mic{position:absolute;left:107px;top:481px;width:71px;height:61px;border-radius:1000px;border:0;background:#c8edfd;display:grid;place-items:center}
+.mic svg{width:31px;height:31px;fill:#505050}
+.input{position:absolute;left:167px;top:485px;width:927px;height:57px;border:1px solid #505050;border-radius:8px;background:#c8edfd;padding:0 12px;font-size:14px;color:#000}
+.camera{position:absolute;left:1101px;top:481px;width:66px;height:61px;border-radius:8px;border:0;background:#c8edfd;display:grid;place-items:center}
+.camera svg{width:31px;height:31px;fill:#505050}
+.send{position:absolute;left:1164px;top:485px;width:59px;height:55px;border-radius:8px;border:0;background:#c8edfd;display:grid;place-items:center}
+.send svg{width:25px;height:25px;fill:#505050}
+.kb-holder{position:absolute;left:-28px;top:567px;width:1274px;height:295px;background:#d1cfcf;border-radius:26px;opacity:.56}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="header-card"></div>
+  <h1 class="title">Live chat group</h1>
+  <button class="back"><svg viewBox="0 0 24 24"><path d="M17.77 3.77 16 2 6 12l10 10 1.77-1.77L9.54 12z"/></svg></button>
+  <button class="support"><svg viewBox="0 0 24 24"><path d="M21 12.22C21 6.73 16.74 3 12 3c-4.69 0-9 3.65-9 9.28-.6.34-1 .98-1 1.72v2c0 1.1.9 2 2 2h1v-6.1c0-3.87 3.13-7 7-7s7 3.13 7 7V19h-8v2h8c1.1 0 2-.9 2-2v-1.22c.59-.31 1-.92 1-1.64v-2.3c0-.7-.41-1.31-1-1.62z"/><path d="M9 12a1 1 0 1 0 0 2 1 1 0 1 0 0-2zM15 12a1 1 0 1 0 0 2 1 1 0 1 0 0-2z"/><path d="M18 11.03A6.04 6.04 0 0 0 12.05 6c-3.03 0-6.29 2.51-6.03 6.45a8.075 8.075 0 0 0 4.86-5.89c1.31 2.63 4 4.44 7.12 4.47z"/></svg></button>
+  <div class="support-label">Support</div>
+  <div class="passengers-label">Passengers</div>
+
+  <div class="pod big p1 big"></div>
+  <div class="pod small p1 small"></div>
+  <svg class="avatar-icon" style="left:797px;top:27px" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+
+  <div class="pod big p2 big"></div>
+  <div class="pod small p2 small"></div>
+  <svg class="avatar-icon" style="left:927px;top:25px" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+
+  <div class="pod big p3 big"></div>
+  <div class="pod small p3 small"></div>
+  <svg class="avatar-icon" style="left:1068px;top:25px" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+
+  <div class="driver-card"></div>
+  <div class="driver-avatar-wrap"></div>
+  <div class="driver-avatar"></div>
+  <svg class="driver-icon" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+  <div class="driver-name">driver's name </div>
+  <div class="driver-status">Status</div>
+
+  <div class="input-bar-bg"></div>
+  <div class="plus-wrap"></div>
+  <button class="plus">+</button>
+  <button class="mic"><svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg></button>
+  <input class="input" placeholder="Input Field"/>
+  <button class="camera"><svg viewBox="0 0 24 24"><path d="M9 2 7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg></button>
+  <button class="send"><svg viewBox="0 0 24 24"><path d="M2 21 23 12 2 3v7l15 2-15 2z"/></svg></button>
+  <div class="kb-holder"></div>
+</div>
+</body>
+</html>
