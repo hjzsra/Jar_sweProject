@@ -222,10 +222,15 @@
             
         </div>
 
-        <div class="button-group">
-            <button class="form-button">Edit</button>
-            <button class="form-button">Save</button>
-        </div>
+        <div class="Button-Container">
+    <a href="profile-form.html" class="Button-Base Button-Create" style="text-decoration: none; display: flex; align-items: center; justify-content: center;">
+        CREATE AN ACCOUNT
+    </a>
+    <a href="profile-form.html" class="Button-Base Button-Login" style="text-decoration: none; display: flex; align-items: center; justify-content: center;">
+        LOGIN
+    </a>
+</div>
     </div>
 </body>
+
 </html>
