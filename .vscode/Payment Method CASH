@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Method - Cash</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: white;
+            min-height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+         .background-circle {
+            position: absolute;
+            top: -400px;
+            right: -400px;
+            width: 1200px;
+            height: 1200px;
+            background: linear-gradient(135deg, #d4ebf7 0%, #a8d5f0 100%);
+            border-radius: 50%;
+            z-index: 0;
+        }
+        .content{
+ position: relative;
+            z-index: 1;
+            padding: 80px 80px;
+        }
+
+        h1 {
+            font-size: 64px;
+            margin-bottom: 60px;
+            font-weight: bold;
+        }
+         .trip-cost {
+            background: #808080;
+            color: black;
+            padding: 25px 50px;
+            border-radius: 50px;
+            font-size: 32px;
+            font-weight: bold;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div class="background-circle"></div>
+      <div class="content">
+        <h1>CASH :</h1>
+        <div class="trip-cost">Trip Cost : 0.00</div>
+    </div>
+</body>
+</html>
+
+
+
+
