@@ -194,9 +194,14 @@
 
     <script>
         function selectRole(role) {
-            alert('You selected: ' + role.charAt(0).toUpperCase() + role.slice(1));
+            if (role === 'student') {
+                window.location.href = 'studentinfo.html';
+            } else if (role === 'driver') {
+                alert('Driver registration coming soon!');
+            }
         }
     </script>
 </body>
 
 </html>
+
