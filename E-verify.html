@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Verification</title>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .screen {
+            background-color: #ffffff;
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .circle-blue {
+            position: absolute;
+            width: 1400px;
+            height: 1400px;
+            background-color: #c8edfd;
+            border-radius: 50%;
+            bottom: -700px;
+            left: -200px;
+            z-index: 1;
+        }
+
+        .circle-gray {
+            position: absolute;
+            width: 800px;
+            height: 1400px;
+            background-color: #b8b8b8;
+            border-radius: 50%;
+            top: -400px;
+            right: -200px;
+            z-index: 1;
+        }
+
+        .logo {
+            position: absolute;
+            top: 50%;
+            right: 100px;
+            transform: translateY(-50%);
+            font-size: 180px;
+            font-family: 'Anton', sans-serif;
+            font-weight: 400;
+            color: #999999;
+            z-index: 2;
+            letter-spacing: -5px;
+        }
+
+        .content {
+            position: relative;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            padding: 50px;
+        }
+
+        .heading {
+            color: #000000;
+            font-size: 72px;
+            font-family: 'Anton', sans-serif;
+            font-weight: 400;
+            margin-bottom: 80px;
+            text-align: center;
+        }
+
+        .form-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 700px;
+        }
+
+        .instruction-text {
+            font-size: 16px;
+            color: #000000;
+            margin-bottom: 20px;
+            text-align: center;
+            font-family: 'Roboto', sans-serif;
+        }
+
+        .code-input {
+            width: 100%;
+            padding: 20px 25px;
+            border: 1px solid #000000;
+            border-radius: 12px;
+            font-size: 18px;
+            font-family: 'Roboto', sans-serif;
+            outline: none;
+            background-color: #ffffff;
+            margin-bottom: 15px;
+            text-align: center;
+            letter-spacing: 8px;
+        }
+
+        .resend-text {
+            font-size: 14px;
+            color: #000000;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .verify-btn {
+            padding: 14px 60px;
+            background-color: #7f7f7f;
+            color: #ffffff;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-family: 'Roboto', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .verify-btn:hover {
+            background-color: #666666;
+            transform: translateY(-2px);
+            box-shadow: 0px 6px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .verify-btn:active {
+            transform: translateY(0px);
+        }
+
+        @media (max-width: 768px) {
+            .heading {
+                font-size: 36px;
+            }
+
+            .content {
+                padding: 30px 20px;
+            }
+
+            .logo {
+                font-size: 100px;
+                right: 20px;
+            }
+
+            .circle-blue,
+            .circle-gray {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="screen">
+        <div class="circle-blue"></div>
+        <div class="circle-gray"></div>
+        <div class="logo">JAR</div>
+
+        <div class="content">
+            <h1 class="heading">Verify Your University Email:</h1>
+
+            <form class="form-container" onsubmit="handleVerify(event)">
+                <p class="instruction-text">We've sent a 6-digit verification code to your university email Please enter it below</p>
+                
+                <input type="text" class="code-input" maxlength="6" pattern="[0-9]{6}" placeholder="" required>
+                
+                <p class="resend-text">Didn't receive the code? You can request a new one in 1 minute.</p>
+                
+                <button type="submit" class="verify-btn">verify</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function handleVerify(event) {
+            event.preventDefault();
+            alert('Verification Successful!');
+        }
+    </script>
+</body>
+</html>

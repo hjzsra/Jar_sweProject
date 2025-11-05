@@ -1,0 +1,169 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Ride Interface</title>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        .circle-1 {
+            position: absolute;
+            top: -374px;
+            left: -635px;
+            width: 2654px;
+            height: 1498px;
+            background-color: #c8edfd;
+            border-radius: 50%;
+        }
+
+        .circle-2 {
+            position: absolute;
+            top: -88px;
+            left: 1224px;
+            width: 292px;
+            height: 292px;
+            background-color: #c2c2c2;
+            border-radius: 50%;
+        }
+        
+        .circle-3 {
+            position: absolute;
+            top: -189px;
+            left: 1282px;
+            width: 284px;
+            height: 356px;
+            background-color: #7f7f7f;
+            border-radius: 50%;
+        }
+
+        .icon-phone {
+            position: absolute;
+            color: #000000;
+            fill: #000000;
+            font-size: 73px;
+            top: 72px;
+            left: 85px;
+            width: 73px;
+            height: 77px;
+        }
+
+        .header-text {
+            position: absolute;
+            top: 72px;
+            left:170px;
+            color: #000000;
+            font-size: 64px;
+            font-family: 'Anton', sans-serif;
+            line-height: 83px;
+        }
+
+        .icon-person {
+            position: absolute;
+            color: #000000;
+            fill: #000000;
+            font-size: 57px;
+            top: 279px;
+            left: 20px;
+            width: 57px;
+            height: 69px;
+        }
+
+        .input-pickoff {
+            position: absolute;
+            top: 269px;
+            left: 85px;
+            width: 562px;
+            height: 66px;
+            padding: 0px 8px;
+            border: 1px solid #505050;
+            box-sizing: border-box;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px rgba(0,0,0,0.1);
+            background-color: #ffffff;
+            color: #000000;
+            font-size: 32px;
+            font-family: 'Roboto', sans-serif;
+            line-height: 42px;
+            outline: none;
+        }
+
+        .icon-dropoff {
+            position: absolute;
+            color: #000000;
+            fill: #000000;
+            font-size: 62px;
+            top: 271px;
+            left: 728px;
+            width: 62px;
+            height: 64px;
+        }
+
+        .input-dropoff {
+            position: absolute;
+            top: 269px;
+            left: 790px;
+            width: 562px;
+            height: 66px;
+            padding: 0px 8px;
+            border: 1px solid #505050;
+            box-sizing: border-box;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px rgba(0,0,0,0.1);
+            background-color: #ffffff;
+            color: #000000;
+            font-size: 32px;
+            font-family: 'Roboto', sans-serif;
+            line-height: 42px;
+            outline: none;
+        }
+
+        .button-search {
+            cursor: pointer;
+            position: absolute;
+            top: 810px;
+            left: 553px;
+            width: 308px;
+            height: 70px;
+            padding: 0px 8px;
+            border: 0;
+            box-sizing: border-box;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(3,3,3,0.1);
+            background-color: #858585;
+            color: #ffffff;
+            font-size: 40px;
+            font-family: 'Roboto', sans-serif;
+            line-height: 52px;
+            outline: none;
+        }
+
+    </style>
+</head>
+<body style="position: relative; width: 1440px; height: 900px; margin: 0 auto; overflow: hidden;">
+
+    <div class="circle-1"></div>
+    <div class="circle-2"></div>
+    <div class="circle-3"></div>
+
+    <svg class="icon-phone" viewBox="0 0 24 24">
+        <path fill="none" d="M0 0h24v24H0z"></path>
+        <path d="M17 1H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zM7 18V6h10v12H7zm9-7V9.14C16 8.51 15.55 8 15 8H9c-.55 0-1 .51-1 1.14v1.96c.55 0 1 .45 1 1s-.45 1-1 1v1.76c0 .63.45 1.14 1 1.14h6c.55 0 1-.51 1-1.14V13c-.55 0-1-.45-1-1s.45-1 1-1zm-3.5 3.5h-1v-1h1v1zm0-2h-1v-1h1v1zm0-2h-1v-1h1v1z"></path>
+    </svg>
+    <div class="header-text">Book Ride</div>
+
+    <svg class="icon-person" viewBox="0 0 512 512">
+        <path d="M320 64C320 99.35 291.3 128 256 128C220.7 128 192 99.35 192 64C192 28.65 220.7 0 256 0C291.3 0 320 28.65 320 64zM288 160C323.3 160 352 188.7 352 224V272C352 289.7 337.7 304 320 304H318.2L307.2 403.5C305.4 419.7 291.7 432 275.4 432H236.6C220.3 432 206.6 419.7 204.8 403.5L193.8 304H192C174.3 304 160 289.7 160 272V224C160 188.7 188.7 160 224 160H288zM63.27 414.7C60.09 416.3 57.47 417.8 55.33 419.2C51.7 421.6 51.72 426.4 55.34 428.8C64.15 434.6 78.48 440.6 98.33 446.1C137.7 456.1 193.5 464 256 464C318.5 464 374.3 456.1 413.7 446.1C433.5 440.6 447.9 434.6 456.7 428.8C460.3 426.4 460.3 421.6 456.7 419.2C454.5 417.8 451.9 416.3 448.7 414.7C433.4 406.1 409.9 399.8 379.7 394.2C366.6 391.8 358 379.3 360.4 366.3C362.8 353.3 375.3 344.6 388.3 347C420.8 352.9 449.2 361.2 470.3 371.8C480.8 377.1 490.6 383.5 498 391.4C505.6 399.5 512 410.5 512 424C512 445.4 496.5 460.1 482.9 469C468.2 478.6 448.6 486.3 426.4 492.4C381.8 504.7 321.6 512 256 512C190.4 512 130.2 504.7 85.57 492.4C63.44 486.3 43.79 478.6 29.12 469C15.46 460.1 0 445.4 0 424C0 410.5 6.376 399.5 13.96 391.4C21.44 383.5 31.24 377.1 41.72 371.8C62.75 361.2 91.24 352.9 123.7 347C136.7 344.6 149.2 353.3 151.6 366.3C153.1 379.3 145.4 391.8 132.3 394.2C102.1 399.8 78.57 406.1 63.27 414.7H63.27z"></path>
+    </svg>
+    <input class="input-pickoff" placeholder="Pick off" />
+
+    <svg class="icon-dropoff" viewBox="0 0 24 24">
+        <path d="M0 0h24v24H0z" fill="none"></path>
+        <path d="M18 8c0-3.31-2.69-6-6-6S6 4.69 6 8c0 4.5 6 11 6 11s6-6.5 6-11zm-8 0c0-1.1.9-2 2-2s2 .9 2 2a2 2 0 1 1-4 0zM5 20v2h14v-2H5z"></path>
+    </svg>
+    <input class="input-dropoff" placeholder="Drop off" />
+
+    <button class="button-search">Search</button>
+
+</body>
+</html>
