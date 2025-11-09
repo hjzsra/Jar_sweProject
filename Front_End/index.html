@@ -1,0 +1,202 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JAR Static Page</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Anton&family=Open+Sans&family=Roboto:wght@400;500;700&display=swap');
+
+        .Screen {
+            background-color: #ffffff;
+            min-height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .Text-Large {
+            color: #000000;
+            font-size: 96px;
+            font-family: 'Anton', sans-serif;
+            font-weight: 500;
+            line-height: 125px;
+            text-align: center;
+        }
+
+        .Text-Medium {
+            color: #000000;
+            font-size: 40px;
+            font-family: 'Roboto', sans-serif;
+            line-height: 52px;
+            text-align: center;
+        }
+
+        .Text-Small {
+            color: #000000;
+            font-size: 32px;
+            font-family: 'Open Sans', sans-serif;
+            line-height: 42px;
+            white-space: pre-line;
+        }
+
+        .Button-Base {
+            cursor: pointer;
+            width: 206px;
+            height: 36px;
+            padding: 0 8px;
+            border: 0;
+            box-sizing: border-box;
+            border-radius: 25px;
+            box-shadow: 0px 0px 10px rgba(3,3,3,0.1);
+            background-color: #7f7f7f;
+            font-size: 14px;
+            font-family: 'Roboto', sans-serif;
+            line-height: 16px;
+            outline: none;
+        }
+
+        .Button-Create {
+            color: #ffffff;
+        }
+
+        .Button-Login {
+            color: #e5e5e5;
+        }
+
+        .Circle-Blue {
+            position: absolute;
+            top: 404px;
+            left: -326px;
+            width: 2052px;
+            height: 1588px;
+            background-color: #c8edfd;
+            box-shadow: -2px 2px 0px rgba(0,0,0,0.25);
+            border-radius: 50%;
+            z-index: 1;
+        }
+
+        .Circle-Grey {
+            position: absolute;
+            top: 515px;
+            left: -149px;
+            width: 1698px;
+            height: 1142px;
+            background-color: #c2c2c2;
+            box-shadow: -2px 2px 0px rgba(0,0,0,0.25);
+            border-radius: 50%;
+            z-index: 2;
+        }
+
+        .Icon-Base {
+            position: absolute;
+        }
+
+        .Icon-Info {
+            color: #000000; 
+            fill: #000000; 
+            font-size: 111px; 
+            top: -6px; 
+            left: 2px; 
+            width: 111px; 
+            height: 116px;
+        }
+
+        .Icon-CreditCard {
+            color: #c8edfd; 
+            fill: #c8edfd; 
+            font-size: 356px; 
+            top: 66px; 
+            left: 1115px; 
+            width: 356px; 
+            height: 398px;
+        }
+        
+        .Icon-Car {
+            color: #e5e5e5; 
+            fill: #e5e5e5; 
+            font-size: 102px; 
+            top: 247px; 
+            left: 1242px; 
+            width: 102px; 
+            height: 93px;
+        }
+        
+        .Absolute-Container {
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%;
+        }
+
+        .Content-Wrapper {
+            position: relative; 
+            z-index: 10; 
+            padding: 100px; 
+            text-align: center;
+        }
+
+        .Button-Container {
+            display: flex; 
+            justify-content: center; 
+            gap: 40px; 
+            margin-top: 50px;
+        }
+        .icon-link{
+            text-decoration: none;
+            cursor: pointer;
+            display:inline-block;
+        }
+
+        .icon-link:hover .Icon-Base {
+            fill: #007bff;
+            transform: scale(1.1);
+            transition: transform 0.2s ease-in-out;
+        }
+            
+    </style>
+</head>
+<body style="margin: 0;">
+
+    <div class="Screen">
+
+        <div class="Circle-Blue"></div>
+        <div class="Circle-Grey"></div>
+
+        <div class="Absolute-Container">
+            <ahref="setup.html" class="icon-link">
+            <svg class="Icon-Base Icon-Info" viewBox="0 0 24 24">
+                <path d="M0 0h24v24H0z" fill="none"></path>
+                <path d="M11.5 2C6.81 2 3 5.81 3 10.5S6.81 19 11.5 19h.5v3c4.86-2.34 8-7 8-11.5C20 5.81 16.19 2 11.5 2zm1 14.5h-2v-2h2v2zm0-3.5h-2c0-3.25 3-3 3-5 0-1.1-.9-2-2-2s-2 .9-2 2h-2c0-2.21 1.79-4 4-4s4 1.79 4 4c0 2.5-3 2.75-3 5z"></path>
+            </svg>
+            </a>
+            
+            <svg class="Icon-Base Icon-CreditCard" viewBox="0 0 320 512">
+                <path d="M32 32C32 14.33 46.33 0 64 0H256C273.7 0 288 14.33 288 32C288 49.67 273.7 64 256 64H64C46.33 64 32 49.67 32 32zM0 160C0 124.7 28.65 96 64 96H256C291.3 96 320 124.7 320 160V448C320 483.3 291.3 512 256 512H64C28.65 512 0 483.3 0 448V160zM256 224H64V384H256V224z"></path>
+            </svg>
+
+            <svg class="Icon-Base Icon-Car" viewBox="0 0 24 24">
+                <path d="M0 0h24v24H0z" fill="none"></path>
+                <path d="M18.92 5.01C18.72 4.42 18.16 4 17.5 4h-11c-.66 0-1.21.42-1.42 1.01L3 11v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 15c-.83 0-1.5-.67-1.5-1.5S5.67 12 6.5 12s1.5.67 1.5 1.5S7.33 15 6.5 15zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 10l1.5-4.5h11L19 10H5z"></path>
+            </svg>
+        </div>
+
+        <div class="Content-Wrapper">
+            <div class="Text-Large">Welcome to JAR</div>
+            <div class="Text-Medium">find,share,and manage your university rides with our app</div>
+            <div class="Text-Small">
+                JAR-your ride to and from your campus
+            </div>
+
+            <div class="Button-Container">
+                <a href="roles.html" class="Button-Base Button-Create">CREATE AN ACCOUNT</a>
+                <a href="login.html" class="Button-Base Button-Login">LOGIN</a>
+            </div>
+        </div>
+
+    </div>
+</body>
+
+</html>
+

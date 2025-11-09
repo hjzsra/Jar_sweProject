@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Registration</title>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .screen {
+            background-color: #ffffff;
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .circle-blue {
+            position: absolute;
+            width: 1000px;
+            height: 1000px;
+            background-color: #c8edfd;
+            border-radius: 50%;
+            top: -200px;
+            left: 200px;
+            z-index: 1;
+        }
+
+        .circle-gray {
+            position: absolute;
+            width: 1200px;
+            height: 1200px;
+            background-color: #b8b8b8;
+            border-radius: 50%;
+            top: -300px;
+            left: 300px;
+            z-index: 2;
+        }
+
+        .content {
+            position: relative;
+            z-index: 3;
+            padding: 50px 80px;
+        }
+
+        .heading {
+            color: #000000;
+            font-size: 48px;
+            font-family: 'Anton', sans-serif;
+            font-weight: 400;
+            line-height: 1.2;
+            margin-bottom: 10px;
+        }
+
+        .subheading {
+            color: #000000;
+            font-size: 42px;
+            font-family: 'Anton', sans-serif;
+            font-weight: 400;
+            margin-bottom: 40px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 20px;
+        }
+
+        .form-group.flex-1 {
+            flex: 1;
+        }
+
+        label {
+            font-size: 16px;
+            color: #000000;
+            margin-bottom: 8px;
+            font-weight: 400;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="tel"],
+        input[type="password"] {
+            padding: 10px 15px;
+            border: 1px solid #000000;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: 'Roboto', sans-serif;
+            outline: none;
+            background-color: #ffffff;
+        }
+
+        input[type="text"]::placeholder,
+        input[type="email"]::placeholder,
+        input[type="tel"]::placeholder,
+        input[type="password"]::placeholder {
+            color: #666666;
+        }
+
+        .name-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .name-field {
+            flex: 1;
+        }
+
+        .name-field input {
+            width: 100%;
+        }
+
+        .full-width {
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .gender-group {
+            margin-top: 30px;
+        }
+
+        .gender-label {
+            font-size: 16px;
+            color: #000000;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .radio-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="radio"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            accent-color: #7f7f7f;
+        }
+
+        .radio-option label {
+            margin: 0;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .submit-btn {
+            padding: 12px 40px;
+            background-color: #7f7f7f;
+            color: #ffffff;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-family: 'Roboto', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .submit-btn:hover {
+            background-color: #666666;
+            transform: translateY(-2px);
+            box-shadow: 0px 6px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0px);
+        }
+
+        @media (max-width: 768px) {
+            .heading {
+                font-size: 32px;
+            }
+
+            .subheading {
+                font-size: 28px;
+            }
+
+            .content {
+                padding: 30px 20px;
+            }
+
+            .name-row {
+                flex-direction: column;
+            }
+
+            .circle-blue,
+            .circle-gray {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="screen">
+        <div class="circle-blue"></div>
+        <div class="circle-gray"></div>
+
+        <div class="content">
+            <h1 class="heading">Welcome Student:</h1>
+            <h2 class="subheading">CREATE AN ACCOUNT</h2>
+
+            <form onsubmit="handleSubmit(event)">
+                <div class="name-row">
+                    <div class="name-field">
+                        <label>First name:</label>
+                        <input type="text" placeholder="Input Field" required>
+                    </div>
+                    <div class="name-field">
+                        <label>Middle name:</label>
+                        <input type="text" placeholder="Input Field">
+                    </div>
+                    <div class="name-field">
+                        <label>Last name:</label>
+                        <input type="text" placeholder="Input Field" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Student ID:</label>
+                    <input type="text" class="full-width" placeholder="Input Field" required>
+                </div>
+
+                <div class="form-group">
+                    <label>E-mail address:</label>
+                    <input type="email" class="full-width" placeholder="Input Field" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Phone number:</label>
+                    <input type="tel" class="full-width" placeholder="Input Field" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Enter Password :</label>
+                    <input type="password" class="full-width" placeholder="Input Field" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Confirm Password :</label>
+                    <input type="password" class="full-width" placeholder="Input Field" required>
+                </div>
+
+                <div class="gender-group">
+                    <span class="gender-label">Gender:</span>
+                    <div class="radio-group">
+                        <div class="radio-option">
+                            <input type="radio" id="male" name="gender" value="male">
+                            <label for="male">Male</label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" id="female" name="gender" value="female" checked>
+                            <label for="female">Female</label>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="submit-btn">Create Account</button>
+                <div class="Button-Container">
+                <a href="E-verify.html" class="Button-Base Button-Create">CREATE AN ACCOUNT</a>
+                
+            </div>
+            </form>
+        </div>
+    </div>
+
+    
+</body>
+</html>
