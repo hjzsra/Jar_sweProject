@@ -228,6 +228,79 @@
             </div>
         </form>
     </div>
-    
+    <script>
+
+        const registrationForm=document.querySelector('form');
+        const API_URL ='http://127.0.0.1:8000/api/auth/register/';
+        registrationForm.addEventListener('submit', async function (e){
+            e.preventDefault();
+
+            const first_name= document.getElementById('firstName').value;
+            const middle_name= document.getElementById('middleName').value;
+            const last_name= document.getElementById('lastName').value;
+            const national_id= document.getElementById('nationalId').value;
+            const email= document.getElementById('email').value;
+            const phone= document.getElementById('phone').value;
+            const password= document.getElementById('password').value;
+            const confirm_password= document.getElementById('confirmPassword').value;
+            const gender= genderElement ? (genderElement.value=== 'male' ? 'M' :'F') : '';
+                
+            if (password !== confirmPassword){
+                alert('Passwords do not match!');
+                return;
+                }
+                
+            const formData = {
+            username:first_name,
+            first_name: firstName,
+            middle_name: middleName,
+            last_name: lastName,
+            national_id: nationalId,
+            email: email,
+            phone_number: phone,
+            password: password,
+            gender: gender,
+            role: 'DRIVER'
+            };
+            
+            try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+            if (response.ok){
+                alter('Success!'+data.message +'Redirecting to verification ...');
+                window.location.href = 'Ilm-verify.html';
+
+            }
+            else {
+                let errorMessage = 'Registration failed. ';
+                if (data &&typeof data ==='object'){
+                    errorMessage += '\nDetails: ' + JSON.stringify(data, null, 2);
+                } else if (data && data.detail) {
+                    errorMessage += '\nDetails: ' + data.detail;
+                }
+                alert(errorMessage);
+            }
+        } catch (error) {
+            console.error('Network Error:', error);
+            alert('A network error occurred. Please try again.');
+        }
+        });
+            
+
+
+    </script>
+
+
+
+
+
+
 </body>
 </html>

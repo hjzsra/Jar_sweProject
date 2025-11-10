@@ -175,7 +175,7 @@
             <form class="form-container" onsubmit="handleVerify(event)">
                 <p class="instruction-text">We've sent a 6-digit verification code to your university email Please enter it below</p>
                 
-                <input type="text" class="code-input" maxlength="6" pattern="[0-9]{6}" placeholder="" required>
+                <input type="text" id="email0Input" class="code-input" maxlength="6" pattern="[0-9]{6}" placeholder="" required>
                 
                 <p class="resend-text">Didn't receive the code? You can request a new one in 1 minute.</p>
                 
@@ -185,9 +185,44 @@
     </div>
 
     <script>
-        function handleVerify(event) {
+        const USERNAME_TO_VERIFY ='driver-user-example';
+        const API_URL= 'http://127.0.0.1:8000/api/auth/verify-otp/';
+
+        async function handleVerify(event){
             event.preventDefault();
-            alert('Verification Successful!');
+            const email0tp=document.getElementById('email0tpInput').value;
+
+            const formData ={
+                username: USERNAME_TO_VERIFY,
+                email_otp: emailt0tp
+            };
+            const verifyBtn=document.querySelector('.verify-btn');
+
+            try{
+                const response =await fetch(API_URL,{method:'POST',
+                    headers:{'Content-Type':'application/json',},body:JSON.stringify(formData)});
+                
+                const data = await response.json();
+
+                if (response.ok){
+                    alert('Email verified successfully ! You will now be asked for phone verification.');
+                    window.location.href='phone-verify.html';
+                }
+                else{
+                    let errorMsg=data.error || data.detail ||'Verifaication failed. Check the code and try again.');
+                    alert('Verification Failed : ${errorMsg}');
+                }
+            
+            }
+            catch (error){
+                console.error('Network or Unhandled Error:',error);
+                alert('A network error occurred. Please try again.');
+                
+            }
+            finally {
+                verifyBtn.diabled=dfalse ;
+            }
+
         }
     </script>
 </body>
