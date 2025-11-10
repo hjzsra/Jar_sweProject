@@ -47,3 +47,34 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         send_sms_otp(user, token.phone_otp)
         
         return user
+    #login
+    from django.contrib.auth import get_user_model, authenticate
+from rest_framework import serializers
+
+User = get_user_model()
+
+class LoginSerializer(serializers.Serializer):
+    username = serializers.CharField(required=False, allow_blank=True)
+    email = serializers.EmailField(required=False, allow_blank=True)
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    def validate(self, attrs):
+        username = attrs.get("username")
+        email = attrs.get("email")
+        password = attrs.get("password")
+
+        if not username and not email:
+            raise serializers.ValidationError("أدخلي اسم المستخدم أو الإيميل.")
+
+        if email and not username:
+            try:
+                user = User.objects.get(email__iexact=email)
+                username = user.username
+            except User.DoesNotExist:
+                raise serializers.ValidationError("الحساب غير موجود.")
+
+        user = authenticate(self.context.get("request"), username=username, password=password)
+        if not user:
+            raise serializers.ValidationError("بيانات الدخول غير صحيحة.")
+        attrs["user"] = user
+        return attrs
