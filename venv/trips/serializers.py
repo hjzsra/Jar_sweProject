@@ -1,8 +1,85 @@
 from rest_framework import serializers
 from rest_framework_gis.serializers import GeoFeatureModelSerializer
 from django.contrib.gis.geos import Point
+from rest_framework.routers import DefaultRouter
+from .views import RideViewSet, BookingRequestViewSet
 from .models import UserLocation, ZoneMap, LocationHistory, Trip
 from user_auth.models import User
+from django.utils import timezone
+from .models import * 
+
+
+
+class RideSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the Ride model.
+    Used for creating (Share ride) and listing (Click map to view available rides) rides.
+    """
+    owner_username = serializers.CharField(source='owner.username', read_only=True)
+    available_seats = serializers.ReadOnlyField() 
+    
+class Meta:
+        model = Ride
+        fields = [
+            'id', 
+            'owner',
+            'owner_username', 
+            'start_location', 
+            'end_location', 
+            'departure_time', 
+            'max_passengers', 
+            'is_active',
+            'available_seats' 
+        ]
+        read_only_fields = ['owner'] 
+
+def validate_departure_time(self, value):
+        """Check that the departure time is not in the past."""
+        if value < timezone.now():
+            raise serializers.ValidationError("Departure time cannot be in the past.")
+        return value
+
+def validate_max_passengers(self, value):
+        """Check that max passengers is a positive number."""
+        if value <= 0:
+            raise serializers.ValidationError("A ride must allow at least one passenger.")
+        return value
+
+class BookingSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the Booking model.
+    Used when a user submits data via the 'Join ride' action and for driver requests list.
+    """
+    passenger_username = serializers.CharField(source='passenger.username', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    ride_start_location = serializers.CharField(source='ride.start_location', read_only=True)
+    ride_end_location = serializers.CharField(source='ride.end_location', read_only=True)
+    ride_departure_time = serializers.DateTimeField(source='ride.departure_time', read_only=True)
+
+    class Meta:
+        model = Booking
+        fields = [
+            'id', 
+            'ride', 
+            'passenger', 
+            'passenger_username', 
+            'seats_requested', 
+            'status',
+            'status_display',
+            'booked_at',
+            'ride_start_location', 
+            'ride_end_location', 
+            'ride_departure_time',
+        ]
+        read_only_fields = ['passenger', 'ride', 'status'] 
+        
+    def validate_seats_requested(self, value):
+        """Check that the number of seats requested is valid."""
+        if value <= 0:
+            raise serializers.ValidationError("You must request at least one seat.")
+        return value
+
+        
 
 class PointSerializer(serializers.Field):
     def to_representation(self, value):
@@ -24,9 +101,9 @@ class PointSerializer(serializers.Field):
             )
 class UserLocationSerializer(serializers.ModelSerializer):
      current_location = PointSerializer()
-    distance = serializers.FloatField(read_only=True, required=False)
+     distance = serializers.FloatField(read_only=True, required=False)
     
-    class Meta:
+     class Meta:
         model = UserLocation
         fields = [
             'id',
@@ -44,7 +121,7 @@ class UserLocationSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['user', 'last_location_update']
     
-    def update(self, instance, validated_data):
+     def update(self, instance, validated_data):
        
         location_data = validated_data.pop('current_location', None)
         
@@ -128,7 +205,7 @@ class ZoneMapSerializer(GeoFeatureModelSerializer):
 class LocationHistorySerializer(serializers.ModelSerializer):
      location = PointSerializer()
     
-    class Meta:
+     class Meta:
         model = LocationHistory
         fields = [
             'id',
@@ -166,10 +243,71 @@ class LocationUpdateSerializer(serializers.Serializer):
     )
     
     def validate(self, data):
-         latitude = data['latitude']
+        latitude = data['latitude']
         longitude = data['longitude']
         if not (16 <= latitude <= 32 and 34 <= longitude <= 56):
             raise serializers.ValidationError(
                  )
         
         return data
+class RideSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the Ride model.
+    Used for creating (Share ride) and listing (Click map to view available rides) rides.
+    """
+    owner_username = serializers.CharField(source='owner.username', read_only=True)
+    available_seats = serializers.ReadOnlyField() 
+    
+    class Meta:
+        model = Ride
+        fields = [
+            'id', 
+            'owner',
+            'owner_username', 
+            'start_location', 
+            'end_location', 
+            'departure_time', 
+            'max_passengers', 
+            'is_active',
+            'available_seats']
+        read_only_fields = ['owner'] 
+
+    def validate_departure_time(self, value):
+        """Check that the departure time is not in the past."""
+        if value < timezone.now():
+            raise serializers.ValidationError("Departure time cannot be in the past.")
+        return value
+
+    def validate_max_passengers(self, value):
+        """Check that max passengers is a positive number."""
+        if value <= 0:
+            raise serializers.ValidationError("A ride must allow at least one passenger.")
+        return value
+
+class BookingSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the Booking model.
+    Used when a user submits data via the 'Join ride' action.
+    """
+    passenger_username = serializers.CharField(source='passenger.username', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = Booking
+        fields = [
+            'id', 
+            'ride', 
+            'passenger', 
+            'passenger_username', 
+            'seats_requested', 
+            'status',
+            'status_display',
+            'booked_at'
+        ]
+        read_only_fields = ['passenger', 'ride', 'status'] 
+        
+    def validate_seats_requested(self, value):
+        """Check that the number of seats requested is valid."""
+        if value <= 0:
+            raise serializers.ValidationError("You must request at least one seat.")
+        return value

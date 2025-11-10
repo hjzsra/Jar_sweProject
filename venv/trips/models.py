@@ -2,25 +2,29 @@ from django.db import models
 from django.contrib.gis.db import models as gis_models
 from django.conf import settings
 from django.core.validators import MinValueValidator , MaxValueValidator
+from django.conf import settings 
+from django.utils import timezone 
 
+
+User = settings.AUTH_USER_MODEL
 class UserLocation(models.Model):
 
-    user = models.OneToOneField(
+        user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='location'
     )
-    current_location = gis_models.PointField(
+        current_location = gis_models.PointField(
         geography=True,
         null=True,
         blank=True,
         help_text="Current GPS coordinates (longitude, latitude)"
     )
-    location_permission_granted = models.BooleanField(
+        location_permission_granted = models.BooleanField(
         default=False,
         help_text="Has user granted location access"
     )
-     location_permission_type = models.CharField(
+        location_permission_type = models.CharField(
         max_length=20,
         choices=[
             ('ALWAYS', 'Always Allow'),
@@ -29,32 +33,32 @@ class UserLocation(models.Model):
         ],
         default='DENIED'
     )
-     last_location_update = models.DateTimeField(auto_now=True)
-    location_accuracy = models.FloatField(
+        last_location_update = models.DateTimeField(auto_now=True)
+        location_accuracy = models.FloatField(
         null=True,
         blank=True,
         help_text="Location accuracy in meters"
     )
-    share_location_with_drivers = models.BooleanField(default=True)
-    share_location_in_zone_chat = models.BooleanField(default=False)
-    formatted_address = models.CharField(max_length=500, blank=True)
-    city = models.CharField(max_length=100, blank=True)
-    zone_name = models.CharField(max_length=100, blank=True)
+        share_location_with_drivers = models.BooleanField(default=True)
+        share_location_in_zone_chat = models.BooleanField(default=False)
+        formatted_address = models.CharField(max_length=500, blank=True)
+        city = models.CharField(max_length=100, blank=True)
+        zone_name = models.CharField(max_length=100, blank=True)
     
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+        created_at = models.DateTimeField(auto_now_add=True)
+        updated_at = models.DateTimeField(auto_now=True)
 
-     class Meta:
-        db_table = 'user_locations'
-        indexes = [
+        class Meta:
+         db_table = 'user_locations'
+         indexes = [
             models.Index(fields=['user']),
             models.Index(fields=['last_location_update']),
         ]
         def __str__(self):
-        return f"{self.user.email} - {self.current_location}"
+         return f"{self.user.email} - {self.current_location}"
     
-    def update_location(self, latitude, longitude, accuracy=None):
-        """Update user's current location"""
+        def update_location(self, latitude, longitude, accuracy=None):
+           """Update user's current location"""
         from django.contrib.gis.geos import Point
         
         self.current_location = Point(longitude, latitude)
@@ -62,9 +66,9 @@ class UserLocation(models.Model):
             self.location_accuracy = accuracy
         self.save()
     
-    def get_nearby_users(self, radius_km=5, user_type=None):
-        from django.contrib.gis.measure import D
-        from django.contrib.gis.db.models.functions import Distance
+        def get_nearby_users(self, radius_km=5, user_type=None):
+         from django.contrib.gis.measure import D
+         from django.contrib.gis.db.models.functions import Distance
         
         queryset = UserLocation.objects.filter(
             location_permission_granted=True,
@@ -73,7 +77,6 @@ class UserLocation(models.Model):
         
         if user_type:
             queryset = queryset.filter(user__role=user_type)
-        
         return queryset.filter(
             current_location__distance_lte=(self.current_location, D(km=radius_km))
         ).annotate(
@@ -87,7 +90,7 @@ class ZoneMap(models.Model):
         on_delete=models.CASCADE,
         related_name='zones'
     )
-     boundary = gis_models.PolygonField(
+    boundary = gis_models.PolygonField(
         geography=True,
         help_text="Zone geographic boundary"
     )
@@ -136,14 +139,14 @@ class ZoneMap(models.Model):
 
 
 class LocationHistory(models.Model):
-     user = models.ForeignKey(
+        user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='location_history'
     )
     
-    location = gis_models.PointField(geography=True)
-    trip = models.ForeignKey(
+        location = gis_models.PointField(geography=True)
+        trip = models.ForeignKey(
         'Trip',
         on_delete=models.CASCADE,
         null=True,
@@ -151,30 +154,30 @@ class LocationHistory(models.Model):
         related_name='location_checkpoints'
     )
     
-    recorded_at = models.DateTimeField(auto_now_add=True)
-    accuracy = models.FloatField(null=True, blank=True)
-    speed = models.FloatField(
+        recorded_at = models.DateTimeField(auto_now_add=True)
+        accuracy = models.FloatField(null=True, blank=True)
+        speed = models.FloatField(
         null=True,
         blank=True,
         help_text="Speed in km/h"
     )
-     is_deviation = models.BooleanField(default=False)
-    deviation_distance = models.FloatField(
+        is_deviation = models.BooleanField(default=False)
+        deviation_distance = models.FloatField(
         null=True,
         blank=True,
         help_text="Distance from expected route in meters"
     )
     
-    class Meta:
-        db_table = 'location_history'
-        indexes = [
+        class Meta:
+         db_table = 'location_history'
+         indexes = [
             models.Index(fields=['user', 'recorded_at']),
             models.Index(fields=['trip', 'recorded_at']),
         ]
         ordering = ['-recorded_at']
     
-    def __str__(self):
-        return f"{self.user.email} at {self.recorded_at}"
+        def __str__(self):
+         return f"{self.user.email} at {self.recorded_at}"
 
 
 class Trip(models.Model):
@@ -190,17 +193,17 @@ class Trip(models.Model):
         null=True,
         related_name='driver_trips'
     )
-     pickup_location = gis_models.PointField(geography=True)
+    pickup_location = gis_models.PointField(geography=True)
     dropoff_location = gis_models.PointField(geography=True)
     
     pickup_address = models.CharField(max_length=500)
     dropoff_address = models.CharField(max_length=500)
-     current_location = gis_models.PointField(
+    current_location = gis_models.PointField(
         geography=True,
         null=True,
         blank=True
     )
-     status = models.CharField(
+    status = models.CharField(
         max_length=20,
         choices=[
             ('REQUESTED', 'Requested'),
@@ -212,7 +215,7 @@ class Trip(models.Model):
         ],
         default='REQUESTED'
     )
-     route_deviation_count = models.IntegerField(default=0)
+    route_deviation_count = models.IntegerField(default=0)
     last_location_update = models.DateTimeField(null=True, blank=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
@@ -223,3 +226,43 @@ class Trip(models.Model):
     
     def __str__(self):
         return f"Trip #{self.id} - {self.passenger.email}"
+
+class Ride(models.Model):
+ owner = models.ForeignKey(User, related_name='offered_rides', on_delete=models.CASCADE)
+ start_location = models.CharField(max_length=255, help_text="Starting point of the ride.")
+ end_location = models.CharField(max_length=255, help_text="Destination of the ride.")
+ departure_time = models.DateTimeField(help_text="Scheduled departure date and time.")
+ max_passengers = models.IntegerField(default=1, help_text="Maximum number of passengers allowed.")
+ is_active = models.BooleanField(default=True, help_text="Is the ride currently available for booking/joining?")
+created_at = models.DateTimeField(auto_now_add=True)
+
+def __str__(self):
+        return f"Ride from {self.start_location} to {self.end_location} on {self.departure_time.strftime('%Y-%m-%d %H:%M')}"
+
+@property
+def available_seats(self):
+     """Calculates the number of seats remaining."""
+booked_count = self.bookings.filter(status__in=['CONFIRMED', 'PENDING']).count()
+return self.max_passengers - booked_count 
+
+
+class Booking(models.Model):"""
+    Represents a passenger's request to join a specific ride.
+    Corresponds to the "Book ride" and "Join ride" components.
+    """
+STATUS_CHOICES = [
+        ('PENDING', 'Pending Approval'),
+        ('CONFIRMED', 'Confirmed'),
+        ('REJECTED', 'Rejected'),
+        ('CANCELLED', 'Cancelled'),
+    ]
+ride = models.ForeignKey(Ride, related_name='bookings', on_delete=models.CASCADE)
+passenger = models.ForeignKey(User, related_name='my_bookings', on_delete=models.CASCADE)
+status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDING')
+seats_requested = models.IntegerField(default=1)
+booked_at = models.DateTimeField(auto_now_add=True)
+class Meta:
+    unique_together = ('ride', 'passenger')
+def __str__(self):
+        return f"Booking by {self.passenger.username} for {self.ride}"
+ 

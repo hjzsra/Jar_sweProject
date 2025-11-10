@@ -13,23 +13,23 @@ class UserLocationAdmin(OSMGeoAdmin):
         'zone_name',
         'city'
     ]
-    list_filter = [
+list_filter = [
         'location_permission_granted',
         'location_permission_type',
         'city',
         'zone_name'
     ]
-    search_fields = ['user__email', 'user__first_name', 'user__last_name']
-    readonly_fields = ['last_location_update', 'created_at', 'updated_at']
+search_fields = ['user__email', 'user__first_name', 'user__last_name']
+readonly_fields = ['last_location_update', 'created_at', 'updated_at']
 
-     default_lon = 46.6753  
-    default_lat = 24.7136
-    default_zoom = 12
+default_lon = 46.6753  
+default_lat = 24.7136
+default_zoom = 12
 
 
 @admin.register(ZoneMap)
 class ZoneMapAdmin(OSMGeoAdmin): 
-   list_display = [
+    list_display = [
         'name',
         'university',
         'zone_type',
@@ -37,17 +37,17 @@ class ZoneMapAdmin(OSMGeoAdmin):
         'max_capacity',
         'radius_meters'
     ]
-    list_filter = ['university', 'zone_type', 'is_active']
-    search_fields = ['name']
+list_filter = ['university', 'zone_type', 'is_active']
+search_fields = ['name']
     
-    default_lon = 46.6753
-    default_lat = 24.7136
-    default_zoom = 12
+default_lon = 46.6753
+default_lat = 24.7136
+default_zoom = 12
 
 
 @admin.register(LocationHistory)
 class LocationHistoryAdmin(OSMGeoAdmin):
-  list_display = [
+    list_display = [
         'user',
         'trip',
         'recorded_at',

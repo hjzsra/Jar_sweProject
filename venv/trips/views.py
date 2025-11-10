@@ -1,6 +1,6 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
-from rest_framework.response import response
+from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated 
 from django.contrib.gis.geos import Point 
 from django.contrib.gis.measure import D 
@@ -13,14 +13,132 @@ from .serializers import (
     NearbyUserSerializer,
     ZoneMapSerializer,
     LocationHistorySerializer,
-    LocationUpdateSerializer
+    LocationUpdateSerializer,
+
+
 )
+from .models import Ride, Booking, User
+from .serializers import RideSerializer, BookingSerializer 
+from django.utils import timezone
 from .tasks import process_location_update, check_route_deviation
 import logging
+from django.shortcuts import get_object_or_404
 
 logger = logging.getLogger(__name__)
 
+class RideViewSet(viewsets.ModelViewSet):
+   
+    queryset = Ride.objects.filter(is_active=True, departure_time__gte=timezone.now()).order_by('departure_time')
+    serializer_class = RideSerializer 
 
+    def get_queryset(self):
+       
+        base_queryset = Ride.objects.filter(
+            is_active=True, 
+            departure_time__gte=timezone.now()
+        ).order_by('departure_time')
+        start_location = self.request.query_params.get('start_location')
+        end_location = self.request.query_params.get('end_location')
+        
+        if start_location:
+            base_queryset = base_queryset.filter(start_location__icontains=start_location)
+            
+        if end_location:
+             base_queryset = base_queryset.filter(end_location__icontains=end_location)
+        return [ride for ride in base_queryset if ride.available_seats > 0]
+
+    def perform_create(self, serializer):
+      serializer.save(owner=self.request.user)
+    @action(detail=True, methods=['post'])
+    def join_ride(self, request, pk=None):
+       
+        ride = get_object_or_404(Ride, pk=pk)
+        passenger = request.user
+        
+        booking_data = request.data.copy()
+        booking_data['ride'] = ride.id 
+        booking_serializer = BookingSerializer(data=booking_data)
+        booking_serializer.is_valid(raise_exception=True)
+        seats_requested = booking_serializer.validated_data.get('seats_requested', 1)
+    if passenger == ride.owner:
+     return Response({'error': 'Driver cannot book/join their own ride.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+    if seats_requested > ride.available_seats:
+     return Response({'error': f'Only {ride.available_seats} seats are available.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+    if Booking.objects.filter(ride=ride, passenger=passenger, status__in=['PENDING', 'CONFIRMED']).exists():
+     return Response({'error': 'You already have an active booking for this ride.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+    try:
+     with transaction.atomic():
+        booking = Booking.objects.create(
+                    ride=ride,
+                    passenger=passenger,
+                    seats_requested=seats_requested,
+                    status='PENDING' )
+        return Response(BookingSerializer(booking).data, status=status.HTTP_201_CREATED) 
+
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class BookingRequestViewSet(viewsets.GenericViewSet):
+    
+ serializer_class = BookingSerializer
+ queryset = Booking.objects.all() 
+ def get_queryset(self):
+        
+        user = self.request.user
+        queryset = Booking.objects.filter(
+            ride__owner=user, 
+            status='PENDING'
+        ).select_related('ride', 'passenger').order_by('booked_at') 
+        
+        return queryset
+def list(self, request):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+@action(detail=True, methods=['post'])
+@transaction.atomic
+def approve(self, request, pk=None):
+      
+        booking = get_object_or_404(Booking, pk=pk, status='PENDING', ride__owner=request.user)
+        if booking.seats_requested > booking.ride.available_seats:
+            return Response({'error': f"Cannot approve: only {booking.ride.available_seats} seats remain."}, 
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        booking.status = 'CONFIRMED'
+        booking.save()
+        
+        return Response(self.get_serializer(booking).data)
+
+@action(detail=True, methods=['post'])
+def reject(self, request, pk=None):
+       
+        booking = get_object_or_404(Booking, pk=pk, status='PENDING', ride__owner=request.user)
+        booking.status = 'REJECTED'
+        booking.save()
+        
+        return Response(self.get_serializer(booking).data) 
+class MyBookingViewSet(viewsets.ReadOnlyModelViewSet):
+   
+    serializer_class = BookingSerializer
+    
+    def get_queryset(self):
+        
+        user = self.request.user
+        queryset = Booking.objects.filter(
+            passenger=user
+        ).select_related('ride', 'passenger').order_by('-booked_at') 
+        
+        return queryset
+    def retrieve(self, request, pk=None):
+        
+        booking = get_object_or_404(Booking, pk=pk, passenger=request.user)
+        return Response(self.get_serializer(booking).data)
+        
 class LocationViewSet(viewsets.ModelViewSet):
     serializer_class = UserLocationSerializer
     permission_classes = [IsAuthenticated]
@@ -249,28 +367,69 @@ class ZoneMapViewSet(viewsets.ReadOnlyModelViewSet):
 
 class LocationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
    serializer_class = LocationHistorySerializer
-    permission_classes = [IsAuthenticated]
+   permission_classes = [IsAuthenticated]
     
-    def get_queryset(self):
+   def get_queryset(self):
         return LocationHistory.objects.filter(user=self.request.user)
     
-    @action(detail=False, methods=['get'])
-    def trip_history(self, request):
+   @action(detail=False, methods=['get'])
+   def trip_history(self, request):
      trip_id = request.query_params.get('trip_id')
         
-        if not trip_id:
+     if not trip_id:
             return Response({
                 'success': False,
                 'error': 'trip_id is required'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        history = self.get_queryset().filter(trip_id=trip_id)
-        serializer = self.get_serializer(history, many=True)
+     history = self.get_queryset().filter(trip_id=trip_id)
+     serializer = self.get_serializer(history, many=True)
         
-        return Response({
+     return Response({
             'success': True,
             'trip_id': trip_id,
             'checkpoint_count': len(serializer.data),
             'data': serializer.data
         })
+   
+        
+
+def perform_create(self, serializer):
+        """Logic for 'Share ride' button: Set the ride owner to the current authenticated user."""
+        serializer.save(owner=self.request.user)
+
+@action(detail=True, methods=['post'])
+def join_ride(self, request, pk=None):
+        """
+        Handles both 'Book ride' and 'Join ride' components.
+        A user attempts to create a booking for this ride.
+        """
+        ride = get_object_or_404(Ride, pk=pk)
+        passenger = request.user
+        booking_data = request.data.copy()
+        booking_data['ride'] = ride.id # Link to the ride
+        booking_serializer = BookingSerializer(data=booking_data)
+        booking_serializer.is_valid(raise_exception=True)
+        seats_requested = booking_serializer.validated_data.get('seats_requested', 1)
+if passenger == ride.owner:
+        return Response({'error': 'Driver cannot book/join their own ride.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if seats_requested > ride.available_seats:
+         return Response({'error': f'Only {ride.available_seats} seats are available.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if Booking.objects.filter(ride=ride, passenger=passenger, status__in=['PENDING', 'CONFIRMED']).exists():
+          return Response({'error': 'You already have an active booking for this ride.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            with transaction.atomic():
+                booking = Booking.objects.create(
+                    ride=ride,
+                    passenger=passenger,
+                    seats_requested=seats_requested,
+                    status='PENDING')
+            return Response(BookingSerializer(booking).data, status=status.HTTP_201_CREATED) 
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
                                  
