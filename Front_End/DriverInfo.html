@@ -6,249 +6,102 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Driver Registration</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="global-buttons.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-    
-
-        /* page uses shared stylesheet for background and base typography */
-
-
-        .background-shape {
-            position: absolute;
-            bottom: -100px;
-            right: -100px;
-            width: 800px;
-            height: 800px;
-            background: linear-gradient(135deg, #c0d8e0 0%, #a0c0d0 100%);
-            border-radius: 50% 50% 0 0;
-            z-index: 0;
-        }
-
-        .logo {
-            position: absolute;
-            bottom: 80px;
-            right: 150px;
-            font-size: 180px;
-            font-weight: bold;
-            color: rgba(0, 0, 0, 0.15);
-            font-family: Impact, sans-serif;
-            z-index: 1;
-        }
-
-        .container {
-            background: white;
-            padding: 50px 60px;
-            border-radius: 10px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-            max-width: 500px;
-            width: 100%;
-            position: relative;
-            z-index: 2;
-        }
-
-        h1 {
-            font-size: 32px;
-            margin-bottom: 10px;
-            font-weight: bold;
-        }
-
-        h2 {
-            font-size: 24px;
-            margin-bottom: 30px;
-            font-weight: bold;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .name-row {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .name-field {
-            flex: 1;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-size: 14px;
-            font-weight: 500;
-        }
-
-        input[type="text"],
-        input[type="email"],
-        input[type="tel"],
-        input[type="password"] {
-            width: 100%;
-            padding: 12px 15px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            font-size: 14px;
-            transition: border-color 0.3s;
-        }
-
-        input[type="text"]:focus,
-        input[type="email"]:focus,
-        input[type="tel"]:focus,
-        input[type="password"]:focus {
-            outline: none;
-            border-color: #666;
-        }
-
-        input::placeholder {
-            color: #999;
-        }
-
-        .gender-group {
-            margin-bottom: 30px;
-        }
-
-        .gender-group label {
-            font-size: 14px;
-            font-weight: 500;
-            margin-bottom: 12px;
-        }
-
-        .radio-option {
-            display: flex;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-
-        input[type="radio"] {
-            width: 20px;
-            height: 20px;
-            margin-right: 10px;
-            cursor: pointer;
-        }
-
-        .radio-option span {
-            font-size: 14px;
-        }
-
-        .submit-btn {
-            background: #808080;
-            color: white;
-            padding: 12px 30px;
-            border: none;
-            border-radius: 25px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-
-        .submit-btn:hover {
-            background: #666;
-        }
-
-        
+        *{margin:0;padding:0;box-sizing:border-box}
+        /* keep minimal page-level adjustments; layout and typography come from styles.css */
+        .container{background:#fff;padding:20px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.08);max-width:1000px;margin:40px auto}
+        .text-profile{color:#262626;font-size:40px;font-family:'Anton',sans-serif;margin-bottom:18px}
+        .subtext{font-size:20px;margin-bottom:20px;font-weight:600}
+        .form-group{margin-bottom:16px}
+        .name-row{display:flex;gap:12px;margin-bottom:16px}
+        .name-field{flex:1}
+        .text-label{font-size:14px;margin-bottom:8px}
+        /* reuse shared input style class */
+        .input-field{width:100%;height:48px;padding:10px 12px;border:1px solid #ccc;border-radius:8px;font-size:14px}
+        @media (max-width:720px){.name-row{flex-direction:column}}
     </style>
 </head>
 <body>
-    <div class="background-shape"></div>
-    <div class="logo">JARG</div>
-    
     <div class="container">
-        <h1>Welcome Driver:</h1>
-        <h2>CREATE AN ACCOUNT</h2>
-        
-        <form>
-            <div class="name-row">
-                <div class="name-field">
-                    <label for="firstName">First name:</label>
-                    <input type="text" id="firstName" placeholder="Input Field">
-                </div>
-                <div class="name-field">
-                    <label for="middleName">Middle name:</label>
-                    <input type="text" id="middleName" placeholder="Input Field">
-                </div>
-                <div class="name-field">
-                    <label for="lastName">Last name:</label>
-                    <input type="text" id="lastName" placeholder="Input Field">
-                </div>
+        <div class="text-profile">Welcome Driver:</div>
+        <div class="subtext">CREATE AN ACCOUNT</div>
+
+        <form id="driverForm">
+            <div class="form-group">
+                <div class="text-label">National ID:</div>
+                <input class="input-field" type="text" id="nationalId" placeholder="National ID">
             </div>
 
             <div class="form-group">
-                <label for="nationalId">National ID:</label>
-                <input type="text" id="nationalId" placeholder="Input Field">
+                <div class="text-label">E-mail address:</div>
+                <input class="input-field" type="email" id="email" placeholder="E-mail address">
+                <div class="error-message" id="emailError" aria-live="polite" style="display:none;color:#b00020;margin-top:6px"></div>
             </div>
 
             <div class="form-group">
-                <label for="email">E-mail address:</label>
-                <input type="email" id="email" placeholder="Input Field">
+                <div class="text-label">Enter Password :</div>
+                <input class="input-field" type="password" id="password" placeholder="Password">
+                <div class="error-message" id="passwordError" aria-live="polite" style="display:none"></div>
             </div>
 
             <div class="form-group">
-                <label for="phone">Phone number:</label>
-                <input type="tel" id="phone" placeholder="Input Field">
+                <div class="text-label">Confirm Password :</div>
+                <input class="input-field" type="password" id="confirmPassword" placeholder="Confirm Password">
+                <div class="error-message" id="confirmError" aria-live="polite" style="display:none"></div>
             </div>
 
             <div class="form-group">
-                <label for="password">Enter Password :</label>
-                <input type="password" id="password" placeholder="Input Field">
-            </div>
-
-            <div class="form-group">
-                <label for="confirmPassword">Confirm Password :</label>
-                <input type="password" id="confirmPassword" placeholder="Input Field">
-            </div>
-
-            <div class="gender-group">
-                <label>Gender:</label>
-                <div class="radio-option">
-                    <input type="radio" id="male" name="gender" value="male">
-                    <span>Male</span>
-                </div>
-                <div class="radio-option">
-                    <input type="radio" id="female" name="gender" value="female" checked>
-                    <span>Female</span>
+                <div class="text-label">Gender:</div>
+                <div style="display:flex;gap:12px;margin-top:8px">
+                    <label><input type="radio" name="gender" value="male"> Male</label>
+                    <label><input type="radio" name="gender" value="female" checked> Female</label>
                 </div>
             </div>
 
-            <button type="submit" class="submit-btn">Create Account</button>
+            <div style="display:flex;justify-content:flex-end">
+                <button type="submit" class="form-button">Create Account</button>
+            </div>
         </form>
     </div>
     <script>
 
-        const registrationForm=document.querySelector('form');
-        const API_URL ='http://127.0.0.1:8000/api/auth/register/';
-        registrationForm.addEventListener('submit', async function (e){
+        const registrationForm = document.getElementById('driverForm');
+        const API_URL = 'http://127.0.0.1:8000/api/auth/register/';
+        registrationForm.addEventListener('submit', async function (e) {
             e.preventDefault();
+            const national_id = document.getElementById('nationalId').value;
+            const email = document.getElementById('email');
+            const password = document.getElementById('password').value;
+            const confirm_password = document.getElementById('confirmPassword').value;
+            const genderEl = document.querySelector('input[name="gender"]:checked');
+            const gender = genderEl ? (genderEl.value === 'male' ? 'M' : 'F') : '';
 
-            const first_name= document.getElementById('firstName').value;
-            const middle_name= document.getElementById('middleName').value;
-            const last_name= document.getElementById('lastName').value;
-            const national_id= document.getElementById('nationalId').value;
-            const email= document.getElementById('email').value;
-            const phone= document.getElementById('phone').value;
-            const password= document.getElementById('password').value;
-            const confirm_password= document.getElementById('confirmPassword').value;
-            const gender= genderElement ? (genderElement.value=== 'male' ? 'M' :'F') : '';
-                
-            if (password !== confirmPassword){
+            // basic validation
+            if (!email.checkValidity()) {
+                alert('Please enter a valid email address');
+                return;
+            }
+            if (password.length < 6) {
+                alert('Password should be at least 6 characters');
+                return;
+            }
+            if (password !== confirm_password) {
                 alert('Passwords do not match!');
                 return;
-                }
-                
+            }
+
             const formData = {
-            username:first_name,
-            first_name: firstName,
-            middle_name: middleName,
-            last_name: lastName,
-            national_id: nationalId,
-            email: email,
-            phone_number: phone,
-            password: password,
-            gender: gender,
-            role: 'DRIVER'
+                username: national_id || email.value,
+                first_name: '',
+                middle_name: '',
+                last_name: '',
+                national_id: national_id,
+                email: email.value,
+                phone_number: '',
+                password: password,
+                gender: gender,
+                role: 'DRIVER'
             };
             
             try {

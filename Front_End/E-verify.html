@@ -1,230 +1,86 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Email Verification</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Verify Email — JAR</title>
     <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="global-buttons.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Roboto', sans-serif;
-            overflow: hidden;
-            width: 100vw;
-            height: 100vh;
-        }
-
-        .screen {
-            background-color: #ffffff;
-            width: 100%;
-            height: 100%;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .circle-blue {
-            position: absolute;
-            width: 1400px;
-            height: 1400px;
-            background-color: #c8edfd;
-            border-radius: 50%;
-            bottom: -700px;
-            left: -200px;
-            z-index: 1;
-        }
-
-        .circle-gray {
-            position: absolute;
-            width: 800px;
-            height: 1400px;
-            background-color: #b8b8b8;
-            border-radius: 50%;
-            top: -400px;
-            right: -200px;
-            z-index: 1;
-        }
-
-        .logo {
-            position: absolute;
-            top: 50%;
-            right: 100px;
-            transform: translateY(-50%);
-            font-size: 180px;
-            font-family: 'Anton', sans-serif;
-            font-weight: 400;
-            color: #999999;
-            z-index: 2;
-            letter-spacing: -5px;
-        }
-
-        .content {
-            position: relative;
-            z-index: 3;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            padding: 50px;
-        }
-
-        .heading {
-            color: #000000;
-            font-size: 72px;
-            font-family: 'Anton', sans-serif;
-            font-weight: 400;
-            margin-bottom: 80px;
-            text-align: center;
-        }
-
-        .form-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            width: 100%;
-            max-width: 700px;
-        }
-
-        .instruction-text {
-            font-size: 16px;
-            color: #000000;
-            margin-bottom: 20px;
-            text-align: center;
-            font-family: 'Roboto', sans-serif;
-        }
-
-        .code-input {
-            width: 100%;
-            padding: 20px 25px;
-            border: 1px solid #000000;
-            border-radius: 12px;
-            font-size: 18px;
-            font-family: 'Roboto', sans-serif;
-            outline: none;
-            background-color: #ffffff;
-            margin-bottom: 15px;
-            text-align: center;
-            letter-spacing: 8px;
-        }
-
-        .resend-text {
-            font-size: 14px;
-            color: #000000;
-            margin-bottom: 30px;
-            text-align: center;
-        }
-
-        .verify-btn {
-            padding: 14px 60px;
-            background-color: #7f7f7f;
-            color: #ffffff;
-            border: none;
-            border-radius: 25px;
-            font-size: 16px;
-            font-family: 'Roboto', sans-serif;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.15);
-        }
-
-        .verify-btn:hover {
-            background-color: #666666;
-            transform: translateY(-2px);
-            box-shadow: 0px 6px 12px rgba(0, 0, 0, 0.2);
-        }
-
-        .verify-btn:active {
-            transform: translateY(0px);
-        }
-
-        @media (max-width: 768px) {
-            .heading {
-                font-size: 36px;
-            }
-
-            .content {
-                padding: 30px 20px;
-            }
-
-            .logo {
-                font-size: 100px;
-                right: 20px;
-            }
-
-            .circle-blue,
-            .circle-gray {
-                display: none;
-            }
-        }
+        /* small page-specific tweaks */
+        .verify-input{width:220px;max-width:80%;padding:14px 18px;border-radius:10px;border:1px solid #ccc;text-align:center;font-size:20px;letter-spacing:8px}
+        .Instruction{margin-bottom:18px}
+        .Button-Row{margin-top:18px}
     </style>
 </head>
 <body>
-    <div class="screen">
-        <div class="circle-blue"></div>
-        <div class="circle-gray"></div>
-        <div class="logo">JAR</div>
 
-        <div class="content">
-            <h1 class="heading">Verify Your University Email:</h1>
+    <main class="Screen" role="main">
+        <section class="Hero-Box" role="region" aria-label="Email verification">
+            <div class="Content-Wrapper">
+                <h1 class="Text-Large">Verify Your University Email</h1>
+                <p class="Text-Medium Instruction">We've sent a 6-digit verification code to your university email. Enter it below.</p>
 
-            <form class="form-container" onsubmit="handleVerify(event)">
-                <p class="instruction-text">We've sent a 6-digit verification code to your university email Please enter it below</p>
-                
-                <input type="text" id="email0Input" class="code-input" maxlength="6" pattern="[0-9]{6}" placeholder="" required>
-                
-                <p class="resend-text">Didn't receive the code? You can request a new one in 1 minute.</p>
-                
-                <button type="submit" class="verify-btn">verify</button>
-            </form>
-        </div>
-    </div>
+                <form id="verifyForm" aria-label="Email verification form">
+                    <div style="display:flex;flex-direction:column;align-items:center;">
+                        <input id="codeInput" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" class="verify-input" required aria-label="6-digit verification code">
+                        <p class="Text-Small" style="margin-top:12px">Didn't receive the code? Request a new one in 1 minute.</p>
+                        <div class="Button-Row">
+                            <button type="submit" class="Button-Base">Verify</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
 
     <script>
-        const USERNAME_TO_VERIFY ='driver-user-example';
-        const API_URL= 'http://127.0.0.1:8000/api/auth/verify-otp/';
+        const USERNAME_TO_VERIFY = 'driver-user-example';
+        const API_URL = 'http://127.0.0.1:8000/api/auth/verify-otp/';
 
         async function handleVerify(event){
             event.preventDefault();
-            const email0tp=document.getElementById('email0tpInput').value;
+            const btn = event.currentTarget.querySelector('button[type="submit"]');
+            const code = document.getElementById('codeInput').value.trim();
 
-            const formData ={
-                username: USERNAME_TO_VERIFY,
-                email_otp: emailt0tp
-            };
-            const verifyBtn=document.querySelector('.verify-btn');
+            if(!/^[0-9]{6}$/.test(code)){
+                alert('Enter a 6-digit code');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Verifying...';
+
+            const payload = { username: USERNAME_TO_VERIFY, email_otp: code };
 
             try{
-                const response =await fetch(API_URL,{method:'POST',
-                    headers:{'Content-Type':'application/json',},body:JSON.stringify(formData)});
-                
-                const data = await response.json();
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json().catch(()=> ({}));
 
-                if (response.ok){
-                    alert('Email verified successfully ! You will now be asked for phone verification.');
-                    window.location.href='phone-verify.html';
+                if(res.ok){
+                    alert('Email verified — proceeding to phone verification.');
+                    window.location.href = 'phone-verify.html';
+                    return;
                 }
-                else{
-                    let errorMsg=data.error || data.detail ||'Verifaication failed. Check the code and try again.');
-                    alert('Verification Failed : ${errorMsg}');
-                }
-            
-            }
-            catch (error){
-                console.error('Network or Unhandled Error:',error);
-                alert('A network error occurred. Please try again.');
-                
-            }
-            finally {
-                verifyBtn.diabled=dfalse ;
-            }
 
+                const msg = (data && (data.error || data.detail)) || 'Verification failed. Check the code and try again.';
+                alert('Verification failed: ' + msg);
+
+            } catch(err){
+                console.error(err);
+                alert('Network error — please try again.');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Verify';
+            }
         }
+
+        document.getElementById('verifyForm').addEventListener('submit', handleVerify);
     </script>
+
 </body>
 </html>
