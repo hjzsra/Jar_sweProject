@@ -56,3 +56,14 @@ def mark_paid(payment: Payment, method: str):
 
 def simulate_online_payment(payment: Payment) -> bool:
     return payment.total_amount > 0
+
+@transaction.atomic
+def recalculate_cost_shares(payment: Payment):
+    unpaid_shares = payment.shares.filter(is_paid=False)
+    count = unpaid_shares.count()
+    if count <= 0:
+        return
+    new_share = (payment.total_amount / count).quantize(Decimal('0.01'))
+    for share in unpaid_shares:
+        share.amount = new_share
+    share.save()
