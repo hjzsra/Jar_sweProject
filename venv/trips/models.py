@@ -223,3 +223,17 @@ class Trip(models.Model):
     
     def __str__(self):
         return f"Trip #{self.id} - {self.passenger.email}"
+
+        class TripRequest(models.Model):
+             request_id = models.CharField(max_length=20, unique=True)
+    passenger = models.ForeignKey(User, on_delete=models.CASCADE)
+    pickup_location_name = models.CharField(max_length=255)
+    pickup_latitude = models.DecimalField(max_digits=9, decimal_places=6)
+    pickup_longitude = models.DecimalField(max_digits=9, decimal_places=6)
+    dropoff_location_name = models.CharField(max_length=255)
+    dropoff_latitude = models.DecimalField(max_digits=9, decimal_places=6)
+    dropoff_longitude = models.DecimalField(max_digits=9, decimal_places=6)
+    requested_departure_time = models.DateTimeField()
+    passengers_count = models.IntegerField(default=1)
+    status = models.CharField(max_length=20, default='searching')
+    
