@@ -4,6 +4,226 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Registration</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        * {margin:0;padding:0;box-sizing:border-box}
+
+        /* reuse DriverInfo page styles for consistent look */
+        .background-shape {
+            position: absolute;
+            bottom: -100px;
+            right: -100px;
+            width: 800px;
+            height: 800px;
+            background: linear-gradient(135deg, #c0d8e0 0%, #a0c0d0 100%);
+            border-radius: 50% 50% 0 0;
+            z-index: 0;
+        }
+
+        .logo {
+            position: absolute;
+            bottom: 80px;
+            right: 150px;
+            font-size: 180px;
+            font-weight: bold;
+            color: rgba(0, 0, 0, 0.15);
+            font-family: Impact, sans-serif;
+            z-index: 1;
+        }
+
+        .container {
+            background: white;
+            padding: 50px 60px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            width: 100%;
+            position: relative;
+            z-index: 2;
+        }
+
+        h1{font-size:32px;margin-bottom:10px;font-weight:bold}
+        h2{font-size:24px;margin-bottom:30px;font-weight:bold}
+
+        .form-group{margin-bottom:20px}
+        .name-row{display:flex;gap:15px;margin-bottom:20px}
+        .name-field{flex:1}
+
+        label{display:block;margin-bottom:8px;font-size:14px;font-weight:500}
+        input[type="text"],input[type="email"],input[type="tel"],input[type="password"]{width:100%;padding:12px 15px;border:1px solid #ccc;border-radius:5px;font-size:14px;transition:border-color .3s}
+        input:focus{outline:none;border-color:#666}
+        input::placeholder{color:#999}
+
+        .gender-group{margin-bottom:30px}
+        .radio-option{display:flex;align-items:center;margin-bottom:10px}
+        input[type="radio"]{width:20px;height:20px;margin-right:10px}
+
+        .submit-btn{background:#808080;color:#fff;padding:12px 30px;border:none;border-radius:25px;font-size:16px;cursor:pointer}
+        .submit-btn:hover{background:#666}
+
+        @media (max-width:720px){
+            .name-row{flex-direction:column}
+            .logo{display:none}
+            .background-shape{display:none}
+            .container{padding:28px}
+        }
+    </style>
+</head>
+<body>
+    <div class="background-shape" aria-hidden="true"></div>
+    <div class="logo">JARG</div>
+
+    <div class="container" role="main">
+        <h1>Welcome Student:</h1>
+        <h2>CREATE AN ACCOUNT</h2>
+
+        <form>
+            <div class="name-row">
+                <div class="name-field">
+                    <label for="firstName">First name:</label>
+                    <input type="text" id="firstName" placeholder="First name">
+                </div>
+                <div class="name-field">
+                    <label for="middleName">Middle name:</label>
+                    <input type="text" id="middleName" placeholder="Middle name">
+                </div>
+                <div class="name-field">
+                    <label for="lastName">Last name:</label>
+                    <input type="text" id="lastName" placeholder="Last name">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="studentId">Student ID:</label>
+                <input type="text" id="studentId" placeholder="Student ID">
+            </div>
+
+            <div class="form-group">
+                <label for="email">E-mail address:</label>
+                <input type="email" id="email" placeholder="E-mail address">
+            </div>
+
+                <div class="form-group">
+                    <label for="phone">Phone number:</label>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <span style="background:#f0f0f0;padding:10px 12px;border-radius:6px;border:1px solid #ccc">+966</span>
+                        <input type="tel" id="phone" placeholder="5XXXXXXXX" maxlength="9" inputmode="numeric" pattern="5[0-9]{8}">
+                    </div>
+                    <div class="error-message" id="phoneError" aria-live="polite" style="display:none"></div>
+                </div>
+
+            <div class="form-group">
+                <label for="password">Enter Password :</label>
+                <input type="password" id="password" placeholder="Password">
+                <div class="error-message" id="passwordError" aria-live="polite" style="display:none"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="confirmPassword">Confirm Password :</label>
+                <input type="password" id="confirmPassword" placeholder="Confirm Password">
+                <div class="error-message" id="confirmError" aria-live="polite" style="display:none"></div>
+            </div>
+
+            <div class="gender-group">
+                <label>Gender:</label>
+                <div class="radio-option">
+                    <input type="radio" id="male" name="gender" value="male">
+                    <span>Male</span>
+                </div>
+                <div class="radio-option">
+                    <input type="radio" id="female" name="gender" value="female" checked>
+                    <span>Female</span>
+                </div>
+            </div>
+
+            <button type="submit" class="submit-btn">Create Account</button>
+        </form>
+    </div>
+    <script>
+        (function(){
+            const form = document.querySelector('form');
+            const email = document.getElementById('email');
+            const phone = document.getElementById('phone');
+            const password = document.getElementById('password');
+            const confirm = document.getElementById('confirmPassword');
+
+            const phoneError = document.getElementById('phoneError');
+            const passError = document.getElementById('passwordError');
+            const confirmError = document.getElementById('confirmError');
+
+            function showError(el, msg){
+                el.textContent = msg;
+                el.style.display = 'block';
+            }
+            function clearError(el){
+                el.textContent = '';
+                el.style.display = 'none';
+            }
+
+            // restrict phone input to digits only
+            phone.addEventListener('input', function(e){
+                const cleaned = this.value.replace(/\D/g,'');
+                this.value = cleaned;
+                if(cleaned && cleaned.length>0 && cleaned[0] !== '5'){
+                    showError(phoneError, 'Saudi mobile numbers must start with 5');
+                } else {
+                    clearError(phoneError);
+                }
+            });
+
+            form.addEventListener('submit', function(e){
+                e.preventDefault();
+                let ok = true;
+
+                // validate email using browser validity
+                if(!email.checkValidity()){
+                    ok = false;
+                    showError(phoneError, ''); // clear phone error if any
+                    alert('Please enter a valid email address.');
+                    return;
+                }
+
+                // validate phone: must be 9 digits and start with 5
+                const ph = phone.value.trim();
+                if(!/^5\d{8}$/.test(ph)){
+                    ok = false;
+                    showError(phoneError, 'Enter a Saudi mobile number: 9 digits starting with 5 (we add +966).');
+                } else {
+                    clearError(phoneError);
+                }
+
+                // validate password match
+                if(password.value.length < 6){
+                    ok = false;
+                    showError(passError, 'Password should be at least 6 characters');
+                } else {
+                    clearError(passError);
+                }
+
+                if(password.value !== confirm.value){
+                    ok = false;
+                    showError(confirmError, 'Passwords do not match');
+                } else {
+                    clearError(confirmError);
+                }
+
+                if(ok){
+                    // All validation passed — redirect to profileInfo.html
+                    // You can replace this with form.submit() or an API call as needed
+                    window.location.href = 'profileInfo.html';
+                }
+            });
+        })();
+    </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Registration</title>
+    <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
         * {
