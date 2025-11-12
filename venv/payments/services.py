@@ -1,7 +1,10 @@
 from decimal import Decimal
 from django.db import transaction
+from django.core.mail import send_mail
+from django.conf import settings
 from trips.models import Trip
 from .models import Payment, CostShare, PaymentStatus, PaymentMethod
+
 
 SYMBOLIC_FARE = Decimal('5.00')
 DEFAULT_FARE = Decimal('20.00')
@@ -44,9 +47,14 @@ def get_or_create_payment(trip: Trip) -> Payment:
     return payment
 
 
+def simulate_online_payment(payment: Payment) -> bool:
+    return payment.total_amount > 0
+
+
+
 def mark_paid(payment: Payment, method: str):
     if method not in dict(PaymentMethod.choices):
-        raise ValueError("Invalid payment method")
+        raise ValueError("Invalid payment method!")
 
     payment.method = method
     payment.status = PaymentStatus.PAID
@@ -54,16 +62,49 @@ def mark_paid(payment: Payment, method: str):
     payment.shares.update(is_paid=True)
 
 
-def simulate_online_payment(payment: Payment) -> bool:
-    return payment.total_amount > 0
+def handle_payment_failure(payment: Payment):
+    payment.status = PaymentStatus.FAILED
+    payment.save()
+    payment.shares.update(is_paid=False)
+
 
 @transaction.atomic
 def recalculate_cost_shares(payment: Payment):
-    unpaid_shares = payment.shares.filter(is_paid=False)
-    count = unpaid_shares.count()
-    if count <= 0:
+    remaining_shares = payment.shares.filter(is_paid=False)
+    count = remaining_shares.count()
+    if count == 0:
         return
     new_share = (payment.total_amount / count).quantize(Decimal('0.01'))
-    for share in unpaid_shares:
+    for share in remaining_shares:
         share.amount = new_share
-    share.save()
+        share.save()
+
+
+
+def send_payment_receipts(payment: Payment):
+    if payment.status != PaymentStatus.PAID:
+        return
+
+    subject = f"Trip Payment Receipt #{payment.id}"
+    for share in payment.shares.select_related('passenger'):
+        email = getattr(share.passenger, 'email', None)
+        if not email:
+            continue
+
+        message = (
+            f"Dear {share.passenger},\n\n"
+            f"Your payment for trip #{payment.trip.id} has been confirmed.\n"
+            f"Total trip cost: {payment.total_amount} {payment.currency}\n"
+            f"Your share: {share.amount} {payment.currency}\n"
+            f"Method:  {payment.method}\n "
+            f"Status:  {payment.status}\n\n"
+            f"Thank you."
+        )
+
+        send_mail(
+            subject,
+            message,
+            getattr(settings, 'DEFAULT_FROM_EMAIL', 'no-reply@jar.com'),
+            [email],
+            fail_silently=True
+        )
