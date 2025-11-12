@@ -41,3 +41,41 @@ def api_process_payment(request):
             
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+
+    from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpRequest
+from django.contrib.auth.decorators import login_required
+from .models import Order
+
+@login_required
+def select_payment_method(request: HttpRequest, order_id):
+    order = get_object_or_404(Order, id=order_id, user=request.user, status='PENDING')
+    
+    if request.method == 'POST':
+        selected_method = request.POST.get('payment_method')
+        
+        if selected_method in ['CARD', 'CASH', 'APPLE_PAY', 'JAR']:
+            order.selected_payment_method = selected_method
+            order.save()
+            
+            if selected_method == 'CASH':
+                return redirect('order_confirmation', order_id=order.id)
+            
+            elif selected_method in ['CARD', 'APPLE_PAY', 'JAR']:
+                return redirect('initiate_payment_process', order_id=order.id)
+        
+        return render(request, 'payment_select.html', {'order': order, 'error': 'Invalid payment method.'})
+
+    return render(request, 'payment_select.html', {'order': order})
+
+@login_required
+def order_confirmation(request, order_id):
+    order = get_object_or_404(Order, id=order_id, user=request.user)
+    return render(request, 'order_confirmation.html', {'order': order})
+
+@login_required
+def initiate_payment_process(request, order_id):
+    order = get_object_or_404(Order, id=order_id, user=request.user)
+    return render(request, 'payment_initiate.html', {'order': order})
