@@ -31,3 +31,28 @@ class OrderAdmin(admin.ModelAdmin):
             'fields': ('created_at',),
         }),
     )
+
+    from django.contrib import admin
+from .models import Order, Transaction
+
+@admin.register(Order)
+class OrderAdmin(admin.ModelAdmin):
+    list_display = ['id', 'user', 'amount', 'selected_payment_method', 'status', 'created_at']
+    list_filter = ['status', 'selected_payment_method', 'created_at']
+    search_fields = ['user__username']
+    readonly_fields = ['created_at']
+    fieldsets = (
+        (None, {
+            'fields': ('user', 'amount', 'status', 'selected_payment_method')
+        }),
+        ('Timestamp', {
+            'fields': ('created_at',),
+        }),
+    )
+
+@admin.register(Transaction)
+class TransactionAdmin(admin.ModelAdmin):
+    list_display = ['order', 'transaction_id', 'status', 'timestamp']
+    list_filter = ['status']
+    search_fields = ['transaction_id', 'order__id', 'order__user__username']
+    readonly_fields = ['timestamp']
