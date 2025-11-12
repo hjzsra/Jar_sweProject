@@ -54,7 +54,7 @@ class UserLocation(models.Model):
         return f"{self.user.email} - {self.current_location}"
     
     def update_location(self, latitude, longitude, accuracy=None):
-        """Update user's current location"""
+       
         from django.contrib.gis.geos import Point
         
         self.current_location = Point(longitude, latitude)
@@ -178,55 +178,98 @@ class LocationHistory(models.Model):
 
 
 class Trip(models.Model):
-    passenger = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='passenger_trips'
-    )
-    
+   
+    trip_id = models.CharField(max_length=20, unique=True, editable=False)
+     
+  
     driver = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='driver_trips'
+        User,
+        on_delete=models.CASCADE,
+        related_name='trips_as_driver',
+        limit_choices_to={'user_type': 'driver'}
     )
-     pickup_location = gis_models.PointField(geography=True)
-    dropoff_location = gis_models.PointField(geography=True)
+    passengers = models.ManyToManyField(
+        User,
+        through='TripPassenger',
+        related_name='trips_as_passenger'
+    )
     
-    pickup_address = models.CharField(max_length=500)
-    dropoff_address = models.CharField(max_length=500)
-     current_location = gis_models.PointField(
-        geography=True,
-        null=True,
-        blank=True
-    )
-     status = models.CharField(
-        max_length=20,
-        choices=[
-            ('REQUESTED', 'Requested'),
-            ('ACCEPTED', 'Accepted'),
-            ('PICKUP', 'En Route to Pickup'),
-            ('STARTED', 'Trip Started'),
-            ('COMPLETED', 'Completed'),
-            ('CANCELLED', 'Cancelled'),
-        ],
-        default='REQUESTED'
-    )
-     route_deviation_count = models.IntegerField(default=0)
+   
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('scheduled', 'Scheduled'),
+        ('active', 'Active'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    
+   
+    pickup_location_name = models.CharField(max_length=255)
+    pickup_latitude = models.DecimalField(max_digits=9, decimal_places=6)
+    pickup_longitude = models.DecimalField(max_digits=9, decimal_places=6)
+    
+    
+    dropoff_location_name = models.CharField(max_length=255)
+    dropoff_latitude = models.DecimalField(max_digits=9, decimal_places=6)
+    dropoff_longitude = models.DecimalField(max_digits=9, decimal_places=6)
+    
+   
+    scheduled_departure_time = models.DateTimeField()
+    actual_departure_time = models.DateTimeField(null=True, blank=True)
+    estimated_arrival_time = models.DateTimeField()
+    actual_arrival_time = models.DateTimeField(null=True, blank=True)
+    
+    
+    available_seats = models.IntegerField()
+    total_distance_km = models.DecimalField(max_digits=6, decimal_places=2)
+    estimated_duration_minutes = models.IntegerField()
+    
+    
+    total_fare = models.DecimalField(max_digits=8, decimal_places=2)
+    fare_per_passenger = models.DecimalField(max_digits=8, decimal_places=2)
+    
+    
+    trip_notes = models.TextField(null=True, blank=True)
+    allows_luggage = models.BooleanField(default=True)
+    allows_pets = models.BooleanField(default=False)
+    
+    
+    current_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    current_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     last_location_update = models.DateTimeField(null=True, blank=True)
     
+   
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    cancellation_reason = models.TextField(null=True, blank=True)
     
     class Meta:
         db_table = 'trips'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['driver', 'status']),
+            models.Index(fields=['scheduled_departure_time']),
+            models.Index(fields=['status', 'available_seats']),
+        ]
     
     def __str__(self):
-        return f"Trip #{self.id} - {self.passenger.email}"
+        return f"{self.trip_id} - {self.pickup_location_name} to {self.dropoff_location_name}"
+    
+    def save(self, *args, **kwargs):
+        if not self.trip_id:
+            from django.utils.crypto import get_random_string
+            self.trip_id = f"TR{get_random_string(8).upper()}"
+        super().save(*args, **kwargs)
 
-        class TripRequest(models.Model):
-             request_id = models.CharField(max_length=20, unique=True)
-    passenger = models.ForeignKey(User, on_delete=models.CASCADE)
+
+class TripRequest(models.Model):
+   
+    request_id = models.CharField(max_length=20, unique=True, editable=False)
+    passenger = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trip_requests')
+    
+   
     pickup_location_name = models.CharField(max_length=255)
     pickup_latitude = models.DecimalField(max_digits=9, decimal_places=6)
     pickup_longitude = models.DecimalField(max_digits=9, decimal_places=6)
@@ -235,5 +278,79 @@ class Trip(models.Model):
     dropoff_longitude = models.DecimalField(max_digits=9, decimal_places=6)
     requested_departure_time = models.DateTimeField()
     passengers_count = models.IntegerField(default=1)
-    status = models.CharField(max_length=20, default='searching')
     
+   
+    matched_trip = models.ForeignKey(
+        Trip,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='matched_requests'
+    )
+    
+    
+    STATUS_CHOICES = [
+        ('searching', 'Searching'),
+        ('matched', 'Matched'),
+        ('accepted', 'Accepted'),
+        ('expired', 'Expired'),
+        ('cancelled', 'Cancelled'),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='searching')
+    
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    
+    class Meta:
+        db_table = 'trip_requests'
+        ordering = ['-created_at']
+    
+    def save(self, *args, **kwargs):
+        if not self.request_id:
+            from django.utils.crypto import get_random_string
+            self.request_id = f"RQ{get_random_string(8).upper()}"
+        super().save(*args, **kwargs)
+
+
+class TripPassenger(models.Model):
+    
+    trip = models.ForeignKey(Trip, on_delete=models.CASCADE, related_name='trip_passengers')
+    passenger = models.ForeignKey(User, on_delete=models.CASCADE, related_name='passenger_trips')
+    
+    
+    seats_requested = models.IntegerField(default=1)
+    pickup_location_name = models.CharField(max_length=255, null=True, blank=True)
+    pickup_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    pickup_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    
+   
+    REQUEST_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
+        ('rejected', 'Rejected'),
+        ('cancelled', 'Cancelled'),
+    ]
+    status = models.CharField(max_length=20, choices=REQUEST_STATUS_CHOICES, default='pending')
+    
+    
+    fare_amount = models.DecimalField(max_digits=8, decimal_places=2)
+    payment_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('pending', 'Pending'),
+            ('paid', 'Paid'),
+            ('refunded', 'Refunded'),
+        ],
+        default='pending'
+    )
+    
+    
+    requested_at = models.DateTimeField(auto_now_add=True)
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    cancellation_reason = models.TextField(null=True, blank=True)
+    
+    class Meta:
+        db_table = 'trip_passengers'
+        unique_together = ['trip', 'passenger']

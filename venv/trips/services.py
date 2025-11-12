@@ -2,6 +2,10 @@ import GoogleMaps
 from django.conf import settings
 from django.contrib.gis.geos import point
 from typing import Dict , List , optional import logging
+from math import radians, cos, sin, asin, sqrt
+from datetime import timedelta
+from django.utils import timezone
+from .models import Trip, TripRequest
 
 logger = logging.getLogger(__name__)
 
@@ -185,3 +189,82 @@ class LocationService:
                 'distance_meters': None,
                 'distance_text': 'Unknown'
             }                                                         
+class TripService:
+   
+    
+    @staticmethod
+    def calculate_distance(lat1, lon1, lat2, lon2):
+       
+        lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+        dlon = lon2 - lon1
+        dlat = lat2 - lat1
+        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+        c = 2 * asin(sqrt(a))
+        r = 6371  # Radius of earth in kilometers
+        return c * r
+    
+    @staticmethod
+    def search_available_trips(pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, 
+                               departure_time, max_distance_km=5):
+       
+        time_window_start = departure_time - timedelta(hours=2)
+        time_window_end = departure_time + timedelta(hours=2)
+        
+        trips = Trip.objects.filter(
+            status='scheduled',
+            available_seats__gt=0,
+            scheduled_departure_time__range=(time_window_start, time_window_end)
+        ).select_related('driver', 'driver__driver_profile')
+        
+        matching_trips = []
+        
+        for trip in trips:
+            pickup_distance = TripService.calculate_distance(
+                pickup_lat, pickup_lng,
+                float(trip.pickup_latitude), float(trip.pickup_longitude)
+            )
+            
+            dropoff_distance = TripService.calculate_distance(
+                dropoff_lat, dropoff_lng,
+                float(trip.dropoff_latitude), float(trip.dropoff_longitude)
+            )
+            
+            if pickup_distance <= max_distance_km and dropoff_distance <= max_distance_km:
+                trip.pickup_distance = round(pickup_distance, 2)
+                trip.dropoff_distance = round(dropoff_distance, 2)
+                matching_trips.append(trip)
+        
+        matching_trips.sort(key=lambda t: t.pickup_distance)
+        return matching_trips
+    
+    @staticmethod
+    def match_pending_requests(trip):
+        
+        max_distance = 5  # km
+        time_window_start = trip.scheduled_departure_time - timedelta(hours=2)
+        time_window_end = trip.scheduled_departure_time + timedelta(hours=2)
+        
+        pending_requests = TripRequest.objects.filter(
+            status='searching',
+            requested_departure_time__range=(time_window_start, time_window_end)
+        )
+        
+        matched = []
+        for request in pending_requests:
+            pickup_distance = TripService.calculate_distance(
+                float(request.pickup_latitude), float(request.pickup_longitude),
+                float(trip.pickup_latitude), float(trip.pickup_longitude)
+            )
+            
+            dropoff_distance = TripService.calculate_distance(
+                float(request.dropoff_latitude), float(request.dropoff_longitude),
+                float(trip.dropoff_latitude), float(trip.dropoff_longitude)
+            )
+            
+            if pickup_distance <= max_distance and dropoff_distance <= max_distance:
+                request.matched_trip = trip
+                request.status = 'matched'
+                request.save()
+                matched.append(request)
+        
+        return matched

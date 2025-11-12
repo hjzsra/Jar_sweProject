@@ -3,6 +3,7 @@ from rest_framework_gis.serializers import GeoFeatureModelSerializer
 from django.contrib.gis.geos import Point
 from .models import UserLocation, ZoneMap, LocationHistory, Trip
 from user_auth.models import User
+from .models import Trip, TripRequest, TripPassenger
 
 class PointSerializer(serializers.Field):
     def to_representation(self, value):
@@ -173,3 +174,63 @@ class LocationUpdateSerializer(serializers.Serializer):
                  )
         
         return data
+
+        class TripRequestSerializer(serializers.ModelSerializer):
+   
+    class Meta:
+        model = TripRequest
+        fields = [
+            'request_id', 'pickup_location_name', 'pickup_latitude',
+            'pickup_longitude', 'dropoff_location_name', 'dropoff_latitude',
+            'dropoff_longitude', 'requested_departure_time', 'passengers_count',
+            'status', 'created_at'
+        ]
+        read_only_fields = ['request_id', 'status', 'created_at']
+    
+    def validate_requested_departure_time(self, value):
+        from django.utils import timezone
+        if value <= timezone.now():
+            raise serializers.ValidationError("Departure time must be in the future")
+        return value
+
+
+class TripSerializer(serializers.ModelSerializer):
+    
+    driver_name = serializers.CharField(source='driver.get_full_name', read_only=True)
+    driver_rating = serializers.DecimalField(source='driver.rating', max_digits=3, decimal_places=2, read_only=True)
+    vehicle_info = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Trip
+        fields = [
+            'trip_id', 'driver', 'driver_name', 'driver_rating', 'vehicle_info',
+            'status', 'pickup_location_name', 'pickup_latitude', 'pickup_longitude',
+            'dropoff_location_name', 'dropoff_latitude', 'dropoff_longitude',
+            'scheduled_departure_time', 'estimated_arrival_time',
+            'available_seats', 'total_distance_km', 'estimated_duration_minutes',
+            'total_fare', 'fare_per_passenger', 'trip_notes',
+            'allows_luggage', 'allows_pets', 'created_at'
+        ]
+        read_only_fields = ['trip_id', 'driver', 'status', 'total_fare', 'fare_per_passenger']
+    
+    def get_vehicle_info(self, obj):
+        if hasattr(obj.driver, 'driver_profile'):
+            return {
+                'make': obj.driver.driver_profile.vehicle_make,
+                'model': obj.driver.driver_profile.vehicle_model,
+                'color': obj.driver.driver_profile.vehicle_color
+            }
+        return None
+
+
+class TripPassengerSerializer(serializers.ModelSerializer):
+    
+    passenger_name = serializers.CharField(source='passenger.get_full_name', read_only=True)
+    
+    class Meta:
+        model = TripPassenger
+        fields = [
+            'id', 'passenger', 'passenger_name', 'seats_requested',
+            'fare_amount', 'status', 'payment_status', 'requested_at'
+        ]
+        read_only_fields = ['fare_amount', 'requested_at']

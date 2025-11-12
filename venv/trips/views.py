@@ -7,6 +7,12 @@ from django.contrib.gis.measure import D
 from django.utils import timezone
 from django.db import transaction
 from .models import UserLocation, ZoneMap, LocationHistory, Trip
+from rest_framework.views import APIView
+from rest_framework import status
+from .models import Trip, TripRequest, TripPassenger
+from .serializers import TripSerializer, TripRequestSerializer
+from .services import TripService
+from .permissions import IsApprovedDriver
 from .serializers import (
     UserLocationSerializer,
     LocationPermissionSerializer,
@@ -17,6 +23,7 @@ from .serializers import (
 )
 from .tasks import process_location_update, check_route_deviation
 import logging
+
 
 logger = logging.getLogger(__name__)
 
@@ -876,3 +883,71 @@ class LocationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
             'data': serializer.data
         })
       
+
+class AvailableRidesMapView(APIView):
+    
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        user_lat = float(request.query_params.get('latitude', 0))
+        user_lng = float(request.query_params.get('longitude', 0))
+        radius_km = float(request.query_params.get('radius_km', 10))
+        
+       
+        trips = Trip.objects.filter(
+            status='scheduled',
+            available_seats__gt=0
+        ).select_related('driver', 'driver__driver_profile')
+        
+        
+        nearby_trips = []
+        for trip in trips:
+            distance = TripService.calculate_distance(
+                user_lat, user_lng,
+                float(trip.pickup_latitude), float(trip.pickup_longitude)
+            )
+            
+            if distance <= radius_km:
+                nearby_trips.append({
+                    'trip_id': trip.trip_id,
+                    'driver': {
+                        'name': trip.driver.get_full_name(),
+                        'rating': float(trip.driver.rating)
+                    },
+                    'pickup_location': {
+                        'name': trip.pickup_location_name,
+                        'lat': float(trip.pickup_latitude),
+                        'lng': float(trip.pickup_longitude)
+                    },
+                    'dropoff_location': {
+                        'name': trip.dropoff_location_name,
+                        'lat': float(trip.dropoff_latitude),
+                        'lng': float(trip.dropoff_longitude)
+                    },
+                    'departure_time': trip.scheduled_departure_time,
+                    'available_seats': trip.available_seats,
+                    'fare': float(trip.fare_per_passenger),
+                    'distance_km': round(distance, 2)
+                })
+        
+        return Response({
+            'success': True,
+            'count': len(nearby_trips),
+            'trips': nearby_trips
+        })
+
+ class BookRideView(APIView):
+   
+    pass
+
+class JoinRideView(APIView):
+   
+    pass
+
+class ShareRideView(APIView):
+    
+    pass
+
+class AvailableRidesMapView(APIView):
+   
+    pass
