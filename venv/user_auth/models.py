@@ -2,16 +2,19 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 
 class User(AbstractUser):
+    ROLE_CHOICES = (
+        ('superadmin', 'Super Admin'),('customUser','Custom'),)
     first_name = models.CharField(max_length=50) 
     middle_name = models.CharField(max_length=50, blank=True)
     last_name = models.CharField(max_length=50)
-
+    email = models.EmailField(unique=True),
     national_id = models.CharField(max_length=20, unique=True)
     phone_number = models.CharField(max_length=15, unique=True, help_text="Supports Saudi numbers (+966)")
     university = models.CharField(max_length=100) 
     gender = models.CharField(max_length=1, choices=[('M', 'Male'), ('F', 'Female')])
-    role = models.CharField(max_length=10, choices=[('DRIVER', 'Driver'), ('PASSENGER', 'Passenger')], default='DRIVER')
-
+    role = models.CharField(max_length=10, choices=[('DRIVER', 'Driver'), ('PASSENGER', 'Passenger')], default='Passenger')
+    USERNAME_FIELD = 'email'  
+    REQUIRED_FIELDS = ['username'] 
     
     location_permission_granted = models.BooleanField(
         default=False,
@@ -39,12 +42,12 @@ class User(AbstractUser):
     is_verified = models.BooleanField(default=False)
     email_verified = models.BooleanField(default=False)
     phone_verified = models.BooleanField(default=False)
-     profile_picture = models.ImageField(
+    profile_picture = models.ImageField(
         upload_to='profile_pictures/',
         null=True,
         blank=True
     )
-     created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
@@ -69,3 +72,4 @@ class User(AbstractUser):
     
     def __str__(self):
         return f"{self.get_full_name()} ({self.username})"
+    

@@ -1,8 +1,15 @@
 from django.db import models
+from user_auth.models import User
 
 class DriverDocument(models.Model):
+    driver = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE, 
+        limit_choices_to={'role': 'DRIVER'}, # Optional: ensures only DRIVER roles are linked
+        related_name='driver_documents'
+    )
+
     document_file = models.ImageField(upload_to='driver_docs/%Y/%m/%d/')
-    driver_id = models.CharField(max_length=15)
     upload_date = models.DateTimeField(auto_now_add=True)
     extracted_license_number = models.CharField(max_length=50, blank=True, null=True)
     verification_status = models.CharField(
@@ -15,6 +22,8 @@ class DriverDocument(models.Model):
             ('REJECTED', 'Rejected'),
         ]
     )
+    naql_rejection_reasons = models.TextField(blank=True, null=True)
 
+    
     def __str__(self):
-        return f"{self.driver_id} - {self.document_file.name}"
+        return f"{self.driver.username} - {self.document_file.name}"

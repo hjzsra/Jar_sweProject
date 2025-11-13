@@ -1,26 +1,26 @@
 from rest_framework import serializers
 from .models import User, VerificationToken
 from .services import send_email_otp, send_sms_otp
+
 class UserRegistrationSerializer(serializers.ModelSerializer):
-    # Confirm password is used for front-end validation, not needed in serializer model
+ 
     password = serializers.CharField(write_only=True, required=True)
-    
+    email=serializers.EmailField(required=True,)
+
     class Meta:
         model = User
         fields = (
-            'username', 'email', 'password',
-            'first_name', 'middle_name', 'last_name', 'national_id',
-            'phone_number', 'gender', 'role'
+            'username', 'email', 'password', 'role'
         )
         extra_kwargs = {'role': {'read_only': True}}
         
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
+    
     def create(self, validated_data):
-        # 1. Set the role explicitly to DRIVER
-        validated_data['role'] = 'DRIVER' 
-        
-        # 2. **CRITICAL ADJUSTMENT:** Since the Driver form is missing the 'university' field, 
-        #    we inject a sensible default or null value here, or ideally, raise an error 
-        #    and ask the front-end developer to ADD the field.
+        validated_data['role'] = 'PASSENGER'
         username = validated_data.get('username') or validated_data['first_name']
         university_name="Imam Mohammad bin Saud Islamic university"
         user = User.objects.create_user(
@@ -36,10 +36,9 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             phone_number=validated_data['phone_number'],
             gender=validated_data['gender'],
             role=validated_data['role'],
-            university='N/A' # Drivers don't require University, but the field exists
+            university=university_name # Drivers don't require University, but the field exists
         )
-        
-    
+
         token = VerificationToken.objects.create(user=user)
         token.generate_email_otp()
         token.generate_phone_otp()
@@ -47,3 +46,16 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         send_sms_otp(user, token.phone_otp)
         
         return user
+    
+class UserLoginSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+
+class OTPVerificationSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    email_otp = serializers.CharField(max_length=6, required=False)
+    phone_otp = serializers.CharField(max_length=6, required=False)
+
+
+
+
