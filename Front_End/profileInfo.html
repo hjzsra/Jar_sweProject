@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Profile Form</title>
+    <link rel="stylesheet" href="styles.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Anton&family=Roboto:wght@400;500;700&family=Smokum&display=swap');
         
@@ -26,40 +27,7 @@
             z-index: 1;
         }
 
-        .circle-c8edfd {
-            position: absolute;
-            top: -831px;
-            left: 898px;
-            width: 1335px;
-            height: 1174px;
-            background-color: #c8edfd;
-            box-shadow: -2px 2px 0px rgba(0,0,0,0.25);
-            border-radius: 50%;
-            z-index: 0;
-        }
-        
-        .circle-rgba000-01 {
-            position: absolute;
-            top: -186px;
-            left: 1019px;
-            width: 1325px;
-            height: 1147px;
-            background-color: rgba(0,0,0,0.1);
-            border-radius: 50%;
-            z-index: 0;
-        }
-
-        .logo-text {
-            color: #69aece;
-            font-size: 200px;
-            font-family: 'Smokum', cursive;
-            font-weight: 700;
-            line-height: 260px;
-            position: absolute;
-            top: -50px;
-            right: 0px;
-            z-index: 2;
-        }
+        /* decorative circles/logo removed per request */
 
         .form-group {
             display: flex;
@@ -128,20 +96,20 @@
 
         .form-button {
             cursor: pointer;
-            width: 120px;
-            height: 36px;
-            padding: 0px 8px;
+            width: 180px;
+            height: 48px;
+            padding: 8px 18px;
             border: 0;
             box-sizing: border-box;
-            border-radius: 25px;
-            box-shadow: 0px 0px 10px rgba(3,3,3,0.1);
+            border-radius: 28px;
+            box-shadow: 0px 6px 18px rgba(0,0,0,0.12);
             background-color: #7f7f7f;
             color: #ffffff;
-            font-size: 14px;
+            font-size: 16px;
             font-family: 'Roboto', sans-serif;
-            line-height: 16px;
+            line-height: 20px;
             outline: none;
-            transition: background-color 0.3s;
+            transition: transform 0.12s ease, background-color 0.12s ease;
         }
 
         .form-button:hover {
@@ -163,14 +131,10 @@
     </style>
 </head>
 <body>
-    <div class="circle-c8edfd"></div>
-    <div class="circle-rgba000-01"></div>
-
-    <div class="logo-text">JAR</div>
-
     <div class="container">
         <div class="text-profile">Profile:</div>
         
+        <form id="profileForm">
         <div class="form-group">
             
             <div class="form-column">
@@ -191,7 +155,11 @@
 
                 <div class="form-field">
                     <div class="text-label">phone no. :</div>
-                    <input class="input-field" type="tel" placeholder="Input Field" />
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <span style="background:#f0f0f0;padding:10px 12px;border-radius:6px;border:1px solid #505050">+966</span>
+                        <input class="input-field" id="phone" type="tel" placeholder="5XXXXXXXX" maxlength="9" inputmode="numeric" pattern="5[0-9]{8}" />
+                    </div>
+                    <div class="error-message" id="phoneError" aria-live="polite" style="display:none;color:#b00020;margin-top:6px"></div>
                 </div>
 
                 <div class="form-field">
@@ -208,7 +176,20 @@
 
                 <div class="form-field">
                     <div class="text-label">E-mail:</div>
-                    <input class="input-field email" type="email" placeholder="Input Field" />
+                    <input class="input-field email" id="email" type="email" placeholder="Input Field" />
+                    <div class="error-message" id="emailError" aria-live="polite" style="display:none;color:#b00020;margin-top:6px"></div>
+                </div>
+
+                <div class="form-field">
+                    <div class="text-label">Enter Password :</div>
+                    <input class="input-field" id="password" type="password" placeholder="Password" />
+                    <div class="error-message" id="passwordError" aria-live="polite" style="display:none;color:#b00020;margin-top:6px"></div>
+                </div>
+
+                <div class="form-field">
+                    <div class="text-label">Confirm Password :</div>
+                    <input class="input-field" id="confirmPassword" type="password" placeholder="Confirm Password" />
+                    <div class="error-message" id="confirmError" aria-live="polite" style="display:none;color:#b00020;margin-top:6px"></div>
                 </div>
 
                 <div class="form-field">
@@ -222,15 +203,67 @@
             
         </div>
 
-        <div class="Button-Container">
-    <a href="profile-form.html" class="Button-Base Button-Create" style="text-decoration: none; display: flex; align-items: center; justify-content: center;">
-        CREATE AN ACCOUNT
-    </a>
-    <a href="profile-form.html" class="Button-Base Button-Login" style="text-decoration: none; display: flex; align-items: center; justify-content: center;">
-        LOGIN
-    </a>
-</div>
+        <div class="Button-Container" style="margin-top:20px;display:flex;justify-content:flex-end;gap:12px">
+            <!-- CREATE AN ACCOUNT removed as requested -->
+            <button type="submit" class="form-button" id="updateBtn">UPDATE</button>
+        </div>
+        </form>
     </div>
+    <script>
+        (function(){
+            const form = document.getElementById('profileForm');
+            const email = document.getElementById('email');
+            const phone = document.getElementById('phone');
+            const password = document.getElementById('password');
+            const confirm = document.getElementById('confirmPassword');
+
+            const phoneError = document.getElementById('phoneError');
+            const emailError = document.getElementById('emailError');
+            const passError = document.getElementById('passwordError');
+            const confirmError = document.getElementById('confirmError');
+
+            function showError(el, msg){ el.textContent = msg; el.style.display = 'block'; }
+            function clearError(el){ el.textContent = ''; el.style.display = 'none'; }
+
+            phone.addEventListener('input', function(){
+                const cleaned = this.value.replace(/\D/g,'');
+                this.value = cleaned;
+                if(cleaned && cleaned[0] !== '5') showError(phoneError, 'Saudi mobile numbers must start with 5');
+                else clearError(phoneError);
+            });
+
+            form.addEventListener('submit', function(e){
+                e.preventDefault();
+                let ok = true;
+
+                // Email validation
+                if(!email.checkValidity()){
+                    ok = false; showError(emailError, 'Please enter a valid email address');
+                } else { clearError(emailError); }
+
+                // Phone validation: 9 digits starting with 5
+                const ph = phone.value.trim();
+                if(!/^5\d{8}$/.test(ph)){
+                    ok = false; showError(phoneError, 'Enter a Saudi mobile number: 9 digits starting with 5 (we add +966).');
+                } else { clearError(phoneError); }
+
+                // Password length
+                if(password.value && password.value.length < 6){
+                    ok = false; showError(passError, 'Password should be at least 6 characters');
+                } else { clearError(passError); }
+
+                // Confirm match
+                if(password.value !== confirm.value){
+                    ok = false; showError(confirmError, 'Passwords do not match');
+                } else { clearError(confirmError); }
+
+                if(ok){
+                    // For now show a friendly confirmation; replace with API call as needed
+                    alert('Profile updated successfully');
+                }
+            });
+        })();
+    </script>
 </body>
 
 </html>
