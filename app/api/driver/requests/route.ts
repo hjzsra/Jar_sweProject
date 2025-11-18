@@ -2,6 +2,7 @@
 // Get pending ride requests for driver in their area
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { RideStatus, UserRole } from '@prisma/client'
 import { verifyToken } from '@/lib/auth'
 import { calculateDistance } from '@/lib/utils'
 
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
     }
 
     const payload = verifyToken(token)
-    if (!payload || payload.role !== 'driver') {
+    if (!payload || payload.role !== UserRole.DRIVER) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
     // Get pending rides with same gender (passenger gender must match driver gender)
     const pendingRides = await prisma.ride.findMany({
       where: {
-        status: 'pending',
+        status: RideStatus.PENDING,
         passenger: {
           gender: driver.gender, // Only show rides from passengers of same gender
         },

@@ -2,6 +2,7 @@
 // Authenticates user with university email and password
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { UserRole } from '@prisma/client'
 import { generateToken } from '@/lib/auth'
 import bcrypt from 'bcryptjs'
 
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
     const token = generateToken({
       userId: user.id,
       email: user.email,
-      role: 'user',
+      role: UserRole.USER,
     })
 
     return NextResponse.json({
