@@ -1,6 +1,0 @@
-Django
-djangorestframework
-requests
-pillow
-django-cors-headers
-psycopg-binary
