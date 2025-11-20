@@ -20,12 +20,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate university email format
-    if (!isValidUniversityEmail(email)) {
-      return NextResponse.json(
-        { error: 'Please use a valid university email address' },
-        { status: 400 }
-      )
-    }
+   // if (!isValidUniversityEmail(email)) {
+      //return NextResponse.json(
+       // { error: 'Please use a valid university email address' },
+       // { status: 400 }
+     // )
+    //}
+if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  return NextResponse.json({ error: 'Invalid email address' }, { status: 400 })
+}
+
+
+
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
@@ -62,16 +68,21 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Send OTP email
+    // Send OTP email; if sending fails remove user and return error so frontend can surface the problem
     const emailSent = await sendOTP(email, otp)
     if (!emailSent) {
-      // Still create user, but log error
-      console.error('Failed to send OTP email')
+      console.error('Failed to send OTP email; removing created user')
+      await prisma.user.delete({ where: { id: user.id } })
+      return NextResponse.json(
+        { error: 'Failed to send verification email. Check email configuration.' },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({
       message: 'Registration successful. Please check your email for verification code.',
       userId: user.id,
+      email,
     })
   } catch (error) {
     console.error('Registration error:', error)

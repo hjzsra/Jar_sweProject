@@ -45,6 +45,9 @@ export default function UserRegister() {
 
       toast.success(response.data.message)
       setStep('verify')
+        // Keep same-screen verify flow for immediate verification
+        // Also allow user to go to persistent verify page if they navigate away
+        // (pre-fill email in the verify page)
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Registration failed')
     } finally {
@@ -95,6 +98,14 @@ export default function UserRegister() {
             <button type="submit" className="btn btn-primary w-full" disabled={loading}>
               {loading ? 'Verifying...' : 'Verify'}
             </button>
+              <div className="flex gap-2">
+                <button type="submit" className="btn btn-primary flex-1" disabled={loading}>
+                  {loading ? 'Verifying...' : 'Verify'}
+                </button>
+                <button type="button" className="btn btn-ghost" onClick={() => router.push(`/user/verify?email=${encodeURIComponent(formData.email)}`)}>
+                  Enter code later
+                </button>
+              </div>
           </form>
         </div>
       </div>
