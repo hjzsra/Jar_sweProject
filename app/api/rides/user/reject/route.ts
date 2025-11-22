@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = verifyToken(token)
-    if (!payload || payload.role !== 'user') {
+    if (!payload || payload.role.toUpperCase() !== 'USER') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

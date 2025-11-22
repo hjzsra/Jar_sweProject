@@ -44,9 +44,14 @@ export default function UserRegister() {
       })
 
       toast.success(response.data.message)
-      setStep('verify')
+      router.push(`/user/verify-email?email=${formData.email}`)
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Registration failed')
+      if (error.response?.data?.errorCode === 'EMAIL_NOT_VERIFIED') {
+        toast.error(error.response.data.message)
+        router.push(`/user/verify-email?email=${formData.email}`)
+      } else {
+        toast.error(error.response?.data?.error || 'Registration failed')
+      }
     } finally {
       setLoading(false)
     }
@@ -113,7 +118,7 @@ export default function UserRegister() {
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               className="input"
-              placeholder="student@university.edu"
+              placeholder="student@gmail.com"
               required
             />
           </div>
@@ -208,4 +213,3 @@ export default function UserRegister() {
     </div>
   )
 }
-
