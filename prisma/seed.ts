@@ -2,7 +2,11 @@
 // Bootstraps an admin, a user, a driver, wallets, a ride, and a chat thread
 import { PrismaClient, PaymentMethod, PaymentStatus, RideStatus, TransactionSource, TransactionType, UserRole } from '@prisma/client'
 import bcrypt from 'bcryptjs'
+<<<<<<< HEAD
 import { withAccelerate } from "@prisma/extension-accelerate"
+=======
+import 'dotenv/config'
+>>>>>>> f4b212498b0180dd278cd468653c7726b528eefd
 
 
 const prisma = new PrismaClient().$extends(withAccelerate())
@@ -12,6 +16,7 @@ async function main() {
   const adminEmail = 'admin@studentrides.com'
   const adminPassword = 'admin123' // Change this in production!
   const hashedAdmin = await bcrypt.hash(adminPassword, 10)
+  
 
   const admin = await prisma.admin.upsert({
     where: { email: adminEmail },

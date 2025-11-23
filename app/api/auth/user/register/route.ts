@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate university email format
+<<<<<<< HEAD
     if (!isValidUniversityEmail(email)) {
       console.log('REGISTER API: Invalid university email format');
       return NextResponse.json(
@@ -29,6 +30,20 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+=======
+   // if (!isValidUniversityEmail(email)) {
+      //return NextResponse.json(
+       // { error: 'Please use a valid university email address' },
+       // { status: 400 }
+     // )
+    //}
+if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  return NextResponse.json({ error: 'Invalid email address' }, { status: 400 })
+}
+
+
+
+>>>>>>> f4b212498b0180dd278cd468653c7726b528eefd
 
     // Check if user already exists
     console.log('REGISTER API: Checking for existing user with email:', email);
@@ -96,6 +111,7 @@ export async function POST(request: NextRequest) {
     })
     console.log('REGISTER API: New user created with ID:', user.id);
 
+<<<<<<< HEAD
     // Send OTP email
     console.log('REGISTER API: Sending OTP to new user.');
     const emailSent = await sendOTP(email, otp)
@@ -104,11 +120,23 @@ export async function POST(request: NextRequest) {
       console.error('REGISTER API: Failed to send OTP email to new user.')
     } else {
       console.log('REGISTER API: OTP email sent successfully to new user.');
+=======
+    // Send OTP email; if sending fails remove user and return error so frontend can surface the problem
+    const emailSent = await sendOTP(email, otp)
+    if (!emailSent) {
+      console.error('Failed to send OTP email; removing created user')
+      await prisma.user.delete({ where: { id: user.id } })
+      return NextResponse.json(
+        { error: 'Failed to send verification email. Check email configuration.' },
+        { status: 500 }
+      )
+>>>>>>> f4b212498b0180dd278cd468653c7726b528eefd
     }
 
     return NextResponse.json({
       message: 'Registration successful. Please check your email for verification code.',
       userId: user.id,
+      email,
     })
   } catch (error) {
     console.error('REGISTER API: Unhandled error:', error)
