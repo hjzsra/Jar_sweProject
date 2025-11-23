@@ -33,6 +33,7 @@
     "@types/nodemailer": "^6.4.15",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
+    "@types/react-leaflet": "^2.8.3",
     "autoprefixer": "^10.4.16",
     "eslint": "^8.55.0",
     "eslint-config-next": "^14.0.0",
