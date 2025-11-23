@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:seed": "ts-node -O '{\"module\":\"commonjs\"}' prisma/seed.ts"
+    "db:seed": "ts-node -O '{\"module\":\"commonjs\"}' prisma/seed.ts",
+    "create:admin": "ts-node -O '{\"module\":\"commonjs\"}' scripts/create-admin.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
@@ -27,13 +28,9 @@
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.5",
-<<<<<<< HEAD
     "@types/leaflet": "^1.9.21",
-    "@types/node": "^20.10.0",
-=======
     "@types/node": "^20.19.25",
-    "@types/nodemailer": "^7.0.4",
->>>>>>> f4b212498b0180dd278cd468653c7726b528eefd
+    "@types/nodemailer": "^6.4.15",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "autoprefixer": "^10.4.16",

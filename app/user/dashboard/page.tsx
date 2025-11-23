@@ -6,18 +6,57 @@ import { useRouter } from 'next/navigation'
 import AuthGuard from '@/components/AuthGuard'
 import api from '@/lib/api'
 import 'leaflet/dist/leaflet.css'
-import L from 'leaflet'
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 import axios from 'axios'
 import { Toaster, toast } from 'react-hot-toast'
 import dynamic from 'next/dynamic'
 import { LatLngExpression } from 'leaflet'
 
 
-const MapComponent = dynamic(() => import('@/components/Msp'), { 
+const MapComponent = dynamic(() => import('@/components/Map'), { 
   ssr: false 
 });
+
+const BookRideForm = ({ onModeSelect, onLocationSelect, selecting, pickupLocation, dropoffLocation }: any) => (
+  <div className="space-y-4">
+    <h3 className="text-lg font-semibold">Book a Ride</h3>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <button
+        onClick={() => onModeSelect('pickup')}
+        className={`w-full p-2 rounded text-white ${selecting === 'pickup' ? 'bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'}`}
+      >
+        {pickupLocation ? `Pickup: ${pickupLocation.lat.toFixed(4)}, ${pickupLocation.lng.toFixed(4)}` : 'Select Pickup Location'}
+      </button>
+      <button
+        onClick={() => onModeSelect('dropoff')}
+        className={`w-full p-2 rounded text-white ${selecting === 'dropoff' ? 'bg-green-700' : 'bg-green-500 hover:bg-green-600'}`}
+      >
+        {dropoffLocation ? `Drop-off: ${dropoffLocation.lat.toFixed(4)}, ${dropoffLocation.lng.toFixed(4)}` : 'Select Drop-off Location'}
+      </button>
+    </div>
+
+    {selecting && (
+      <div className="mt-4">
+        <p className="text-center font-semibold mb-2">
+          Click on the map to select the {selecting} location.
+        </p>
+        <MapComponent
+          position={[24.7136, 46.6753]} // Default to Riyadh, Saudi Arabia
+          zoom={13}
+          onLocationSelect={onLocationSelect}
+          markerPosition={selecting === 'pickup' ? pickupLocation : dropoffLocation}
+        />
+      </div>
+    )}
+
+    <button
+      onClick={() => console.log('Finding ride...')}
+      disabled={!pickupLocation || !dropoffLocation}
+      className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 disabled:bg-gray-400"
+    >
+      Find a Ride
+    </button>
+  </div>
+)
 
 
 const UserDashboard = () => {
@@ -39,47 +78,6 @@ const UserDashboard = () => {
     setSelecting(null)
   }
 
-  const BookRideForm = () => (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold">Book a Ride</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <button
-          onClick={() => setSelecting('pickup')}
-          className={`w-full p-2 rounded text-white ${selecting === 'pickup' ? 'bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'}`}
-        >
-          {pickupLocation ? `Pickup: ${pickupLocation.lat.toFixed(4)}, ${pickupLocation.lng.toFixed(4)}` : 'Select Pickup Location'}
-        </button>
-        <button
-          onClick={() => setSelecting('dropoff')}
-          className={`w-full p-2 rounded text-white ${selecting === 'dropoff' ? 'bg-green-700' : 'bg-green-500 hover:bg-green-600'}`}
-        >
-          {dropoffLocation ? `Drop-off: ${dropoffLocation.lat.toFixed(4)}, ${dropoffLocation.lng.toFixed(4)}` : 'Select Drop-off Location'}
-        </button>
-      </div>
-
-      {selecting && (
-        <div className="mt-4">
-          <p className="text-center font-semibold mb-2">
-            Click on the map to select the {selecting} location.
-          </p>
-          <MapComponent
-            position={[31.963158, 35.930359]} // Default to Amman, Jordan
-            zoom={13}
-            onLocationSelect={handleLocationSelect}
-            markerPosition={selecting === 'pickup' ? pickupLocation : dropoffLocation}
-          />
-        </div>
-      )}
-
-      <button
-        disabled={!pickupLocation || !dropoffLocation}
-        className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 disabled:bg-gray-400"
-      >
-        Find a Ride
-      </button>
-    </div>
-  )
-
   const renderContent = () => {
     switch (activeTab) {
       case 'home':
@@ -91,14 +89,14 @@ const UserDashboard = () => {
       case 'history':
         return <div>Trip History</div>
       case 'book':
-        return <BookRideForm />
+        return <BookRideForm onModeSelect={setSelecting} onLocationSelect={handleLocationSelect} selecting={selecting} pickupLocation={pickupLocation} dropoffLocation={dropoffLocation} />
       default:
         return <div>Welcome to your dashboard!</div>
     }
   }
 
   return (
-    <AuthGuard roles={['user']}>
+    <AuthGuard requiredRole="user">
       <Toaster />
       <div className="min-h-screen bg-gray-100">
         <header className="bg-white shadow">
@@ -141,4 +139,3 @@ const UserDashboard = () => {
 }
 
 export default UserDashboard
-

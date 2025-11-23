@@ -44,14 +44,7 @@ export default function UserRegister() {
       })
 
       toast.success(response.data.message)
-<<<<<<< HEAD
-      router.push(`/user/verify-email?email=${formData.email}`)
-=======
       setStep('verify')
-        // Keep same-screen verify flow for immediate verification
-        // Also allow user to go to persistent verify page if they navigate away
-        // (pre-fill email in the verify page)
->>>>>>> f4b212498b0180dd278cd468653c7726b528eefd
     } catch (error: any) {
       if (error.response?.data?.errorCode === 'EMAIL_NOT_VERIFIED') {
         toast.error(error.response.data.message)
@@ -104,17 +97,26 @@ export default function UserRegister() {
                 required
               />
             </div>
-            <button type="submit" className="btn btn-primary w-full" disabled={loading}>
-              {loading ? 'Verifying...' : 'Verify'}
-            </button>
-              <div className="flex gap-2">
-                <button type="submit" className="btn btn-primary flex-1" disabled={loading}>
-                  {loading ? 'Verifying...' : 'Verify'}
-                </button>
-                <button type="button" className="btn btn-ghost" onClick={() => router.push(`/user/verify?email=${encodeURIComponent(formData.email)}`)}>
-                  Enter code later
-                </button>
-              </div>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                className="btn btn-primary flex-1"
+                disabled={loading}
+              >
+                {loading ? 'Verifying...' : 'Verify'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() =>
+                  router.push(
+                    `/user/verify?email=${encodeURIComponent(formData.email)}`
+                  )
+                }
+              >
+                Enter code later
+              </button>
+            </div>
           </form>
         </div>
       </div>
