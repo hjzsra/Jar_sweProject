@@ -248,7 +248,7 @@ model Wallet {
   id        String   @id @default(cuid())
   userId    String   @unique
   balance   Int      @default(0) // cents
-  currency  String   @default("USD")
+  currency  String   @default("SAR")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -279,7 +279,7 @@ model Payout {
   id          String    @id @default(cuid())
   driverId    String
   amount      Int
-  currency    String    @default("USD")
+  currency    String    @default("SAR")
   status      String    @default("REQUESTED")
   requestedAt DateTime  @default(now())
   processedAt DateTime?

@@ -49,7 +49,7 @@ async function main() {
     create: {
       userId: user.id,
       balance: 0,
-      currency: 'USD',
+      currency: 'SAR',
     },
   })
 
