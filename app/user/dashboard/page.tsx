@@ -13,8 +13,10 @@ import { LatLngExpression } from 'leaflet'
 
 
 const MapComponent = dynamic(() => import('@/components/Map'), { 
-  ssr: false 
+  ssr: false ,
+  loading: () => <p>Loading map...</p>
 });
+
 
 const BookRideForm = ({ onModeSelect, onLocationSelect, selecting, pickupLocation, dropoffLocation }: any) => (
   <div className="space-y-4">
@@ -65,7 +67,19 @@ const UserDashboard = () => {
   const [pickupLocation, setPickupLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [dropoffLocation, setDropoffLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [selecting, setSelecting] = useState<'pickup' | 'dropoff' | null>(null)
+  const [user, setUser] = useState<any>(null);
 
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await api.get('/user/profile');
+        setUser(response.data);
+      } catch (error) {
+        toast.error('Failed to fetch user data');
+      }
+    };
+    fetchUser();
+  }, []);
 
   const handleLocationSelect = (location: { lat: number; lng: number }) => {
     if (selecting === 'pickup') {
@@ -81,7 +95,7 @@ const UserDashboard = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'home':
-        return <div>Welcome to your dashboard!</div>
+        return <div>Welcome to your dashboard!, {user?.firstName}!</div>
       case 'profile':
         return <div>Profile Management</div>
       case 'wallet':
