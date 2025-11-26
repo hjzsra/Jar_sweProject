@@ -1,155 +1,397 @@
-// User dashboard page
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import AuthGuard from '@/components/AuthGuard'
-import api from '@/lib/api'
-import 'leaflet/dist/leaflet.css'
-import axios from 'axios'
-import { Toaster, toast } from 'react-hot-toast'
 import dynamic from 'next/dynamic'
-import { LatLngExpression } from 'leaflet'
+import api from '@/lib/api'
+import toast from 'react-hot-toast'
+import AuthGuard from '@/components/AuthGuard'
+import Wallet from '@/components/Wallet'
+import {
+  FaUser,
+  FaMapMarkerAlt,
+  FaCar,
+  FaWallet as FaWalletIcon,
+  FaHistory,
+} from 'react-icons/fa'
 
+const MapComponent = dynamic(() => import('@/components/MapComponent'), {
+  ssr: false,
+})
 
-const MapComponent = dynamic(() => import('@/components/Map'), { 
-  ssr: false ,
-  loading: () => <p>Loading map...</p>
-});
+type Location = {
+  lat: number
+  lng: number
+  address: string
+}
 
+type Driver = {
+  id: string
+  firstName: string
+  lastName: string
+  latitude: number
+  longitude: number
+  distance: number
+}
 
-const BookRideForm = ({ onModeSelect, onLocationSelect, selecting, pickupLocation, dropoffLocation }: any) => (
-  <div className="space-y-4">
-    <h3 className="text-lg font-semibold">Book a Ride</h3>
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <button
-        onClick={() => onModeSelect('pickup')}
-        className={`w-full p-2 rounded text-white ${selecting === 'pickup' ? 'bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'}`}
-      >
-        {pickupLocation ? `Pickup: ${pickupLocation.lat.toFixed(4)}, ${pickupLocation.lng.toFixed(4)}` : 'Select Pickup Location'}
-      </button>
-      <button
-        onClick={() => onModeSelect('dropoff')}
-        className={`w-full p-2 rounded text-white ${selecting === 'dropoff' ? 'bg-green-700' : 'bg-green-500 hover:bg-green-600'}`}
-      >
-        {dropoffLocation ? `Drop-off: ${dropoffLocation.lat.toFixed(4)}, ${dropoffLocation.lng.toFixed(4)}` : 'Select Drop-off Location'}
-      </button>
-    </div>
+type Ride = {
+  id: string
+  status: string
+  driver: {
+    firstName: string
+    lastName: string
+  }
+  pickupAddress: string
+  dropoffAddress: string
+  createdAt: string
+}
 
-    {selecting && (
-      <div className="mt-4">
-        <p className="text-center font-semibold mb-2">
-          Click on the map to select the {selecting} location.
-        </p>
-        <MapComponent
-          position={[24.7136, 46.6753]} // Default to Riyadh, Saudi Arabia
-          zoom={13}
-          onLocationSelect={onLocationSelect}
-          markerPosition={selecting === 'pickup' ? pickupLocation : dropoffLocation}
-        />
-      </div>
-    )}
-
-    <button
-      onClick={() => console.log('Finding ride...')}
-      disabled={!pickupLocation || !dropoffLocation}
-      className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 disabled:bg-gray-400"
-    >
-      Find a Ride
-    </button>
-  </div>
-)
-
-
-const UserDashboard = () => {
+export default function UserDashboard() {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState('home')
-  const [pickupLocation, setPickupLocation] = useState<{ lat: number; lng: number } | null>(null)
-  const [dropoffLocation, setDropoffLocation] = useState<{ lat: number; lng: number } | null>(null)
-  const [selecting, setSelecting] = useState<'pickup' | 'dropoff' | null>(null)
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<any>(null)
+  const [activeTab, setActiveTab] = useState('book')
+  const [pickupLocation, setPickupLocation] = useState<Location | null>(null)
+  const [dropoffLocation, setDropoffLocation] = useState<Location | null>(null)
+  const [nearbyDrivers, setNearbyDrivers] = useState<Driver[]>([])
+  const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [rideHistory, setRideHistory] = useState<Ride[]>([])
 
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const response = await api.get('/user/profile');
-        setUser(response.data);
-      } catch (error) {
-        toast.error('Failed to fetch user data');
-      }
-    };
-    fetchUser();
-  }, []);
-
-  const handleLocationSelect = (location: { lat: number; lng: number }) => {
-    if (selecting === 'pickup') {
-      setPickupLocation(location)
-      toast.success('Pickup location selected')
-    } else if (selecting === 'dropoff') {
-      setDropoffLocation(location)
-      toast.success('Drop-off location selected')
+    const storedUser = localStorage.getItem('user')
+    if (storedUser) {
+      setUser(JSON.parse(storedUser))
     }
-    setSelecting(null)
+  }, [])
+
+  useEffect(() => {
+    if (activeTab === 'history') {
+      fetchRideHistory()
+    }
+  }, [activeTab])
+
+  const handleLocationSelect = (location: Location, type: 'pickup' | 'dropoff') => {
+    if (type === 'pickup') {
+      setPickupLocation(location)
+    } else {
+      setDropoffLocation(location)
+    }
   }
+
+  const handleFindRide = async () => {
+    if (!pickupLocation) {
+      toast.error('Please select a pickup location')
+      return
+    }
+    setLoading(true)
+    try {
+      const { data } = await api.get('/rides/nearby-drivers', {
+        params: {
+          lat: pickupLocation.lat,
+          lng: pickupLocation.lng,
+          radius: 5000, // 5km radius
+        },
+      })
+      setNearbyDrivers(data)
+      if (data.length === 0) {
+        toast('No drivers found nearby.', { icon: '🤷' })
+      }
+    } catch (error) {
+      toast.error('Failed to find nearby drivers')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleBookRide = async () => {
+    if (!selectedDriver || !pickupLocation || !dropoffLocation) {
+      toast.error('Please select a driver and locations.')
+      return
+    }
+    setLoading(true)
+    try {
+      const response = await api.post('/rides/create', {
+        driverId: selectedDriver.id,
+        pickupLatitude: pickupLocation.lat,
+        pickupLongitude: pickupLocation.lng,
+        pickupAddress: pickupLocation.address,
+        dropoffLatitude: dropoffLocation.lat,
+        dropoffLongitude: dropoffLocation.lng,
+        dropoffAddress: dropoffLocation.address,
+      })
+      toast.success('Ride booked successfully!')
+      setActiveTab('history')
+    } catch (error) {
+      toast.error('Failed to book ride.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchRideHistory = async () => {
+    setLoading(true)
+    try {
+      const { data } = await api.get('/user/trip-history')
+      setRideHistory(data)
+    } catch (error) {
+      toast.error('Failed to fetch ride history')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('role')
+    localStorage.removeItem('user')
+    router.push('/user/login')
+  }
+
+  const mapCenter = useMemo((): [number, number] => {
+    if (pickupLocation) {
+      return [pickupLocation.lat, pickupLocation.lng]
+    }
+    return [24.7136, 46.6753] // Default to Riyadh
+  }, [pickupLocation])
+
+  const mapMarkers = useMemo(() => {
+    const markers = []
+    if (pickupLocation) {
+      markers.push({
+        position: [pickupLocation.lat, pickupLocation.lng] as [number, number],
+        popupText: `Pickup: ${pickupLocation.address}`,
+      })
+    }
+    if (dropoffLocation) {
+      markers.push({
+        position: [dropoffLocation.lat, dropoffLocation.lng] as [number, number],
+        popupText: `Dropoff: ${dropoffLocation.address}`,
+      })
+    }
+    nearbyDrivers.forEach((driver) => {
+      markers.push({
+        position: [driver.latitude, driver.longitude] as [number, number],
+        popupText: `${driver.firstName} ${driver.lastName}`,
+      })
+    })
+    return markers
+  }, [pickupLocation, dropoffLocation, nearbyDrivers])
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'home':
-        return <div>Welcome to your dashboard!, {user?.firstName}!</div>
       case 'profile':
-        return <div>Profile Management</div>
+        return user ? (
+          <div className="card">
+            <h3 className="text-xl font-bold mb-4">My Profile</h3>
+            <p>
+              <strong>Name:</strong> {user.firstName} {user.lastName}
+            </p>
+            <p>
+              <strong>Email:</strong> {user.email}
+            </p>
+            <p>
+              <strong>University:</strong> {user.university}
+            </p>
+          </div>
+        ) : (
+          <p>Loading profile...</p>
+        )
       case 'wallet':
-        return <div>Wallet</div>
+        return <Wallet />
       case 'history':
-        return <div>Trip History</div>
+        return (
+          <div className="card">
+            <h3 className="text-xl font-bold mb-4">Ride History</h3>
+            {loading && <p>Loading history...</p>}
+            {!loading && rideHistory.length === 0 && <p>No rides yet.</p>}
+            <div className="space-y-4">
+              {rideHistory.map((ride) => (
+                <div key={ride.id} className="border p-4 rounded-lg">
+                  <p>
+                    <strong>Driver:</strong> {ride.driver.firstName} {ride.driver.lastName}
+                  </p>
+                  <p>
+                    <strong>From:</strong> {ride.pickupAddress}
+                  </p>
+                  <p>
+                    <strong>To:</strong> {ride.dropoffAddress}
+                  </p>
+                  <p>
+                    <strong>Status:</strong> {ride.status}
+                  </p>
+                  <p>
+                    <strong>Date:</strong> {new Date(ride.createdAt).toLocaleString()}
+                  </p>
+                  {ride.status === 'IN_PROGRESS' && (
+                    <button
+                      onClick={() => router.push(`/user/chat?rideId=${ride.id}`)}
+                      className="btn btn-secondary mt-2"
+                    >
+                      Chat with Driver
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )
       case 'book':
-        return <BookRideForm onModeSelect={setSelecting} onLocationSelect={handleLocationSelect} selecting={selecting} pickupLocation={pickupLocation} dropoffLocation={dropoffLocation} />
       default:
-        return <div>Welcome to your dashboard!</div>
+        return (
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="lg:w-1/3 card">
+              <LocationSearch
+                onLocationSelect={(loc) => handleLocationSelect(loc, 'pickup')}
+                placeholder="Pickup Location"
+              />
+              <LocationSearch
+                onLocationSelect={(loc) => handleLocationSelect(loc, 'dropoff')}
+                placeholder="Dropoff Location"
+              />
+              <button
+                onClick={handleFindRide}
+                className="btn btn-primary w-full mt-4"
+                disabled={loading || !pickupLocation}
+              >
+                {loading ? 'Finding...' : 'Find a Ride'}
+              </button>
+
+              {nearbyDrivers.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="font-bold">Nearby Drivers:</h4>
+                  <ul className="space-y-2 mt-2">
+                    {nearbyDrivers.map((driver) => (
+                      <li
+                        key={driver.id}
+                        onClick={() => setSelectedDriver(driver)}
+                        className={`p-2 rounded cursor-pointer ${
+                          selectedDriver?.id === driver.id ? 'bg-primary text-white' : 'bg-gray-100'
+                        }`}
+                      >
+                        {driver.firstName} ({driver.distance.toFixed(2)}m away)
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    onClick={handleBookRide}
+                    className="btn btn-accent w-full mt-4"
+                    disabled={loading || !selectedDriver || !dropoffLocation}
+                  >
+                    {loading ? 'Booking...' : 'Book Ride'}
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="lg:w-2/3 h-64 lg:h-auto card">
+              <MapComponent center={mapCenter} markers={mapMarkers} />
+            </div>
+          </div>
+        )
     }
   }
 
   return (
     <AuthGuard requiredRole="user">
-      <Toaster />
-      <div className="min-h-screen bg-gray-100">
-        <header className="bg-white shadow">
-          <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-            <h1 className="text-3xl font-bold text-gray-900">User Dashboard</h1>
+      <div className="min-h-screen bg-background">
+        <nav className="bg-white shadow-sm p-4 flex justify-between items-center">
+          <h1 className="text-xl font-bold text-primary">Dashboard</h1>
+          <button onClick={handleLogout} className="btn btn-outline">
+            Logout
+          </button>
+        </nav>
+        <div className="p-4">
+          <div className="flex space-x-4 mb-4 border-b">
             <button
-              onClick={() => {
-                localStorage.removeItem('token')
-                router.push('/user/login')
-              }}
-              className="bg-red-500 text-white py-2 px-4 rounded-md hover:bg-red-600"
+              onClick={() => setActiveTab('book')}
+              className={`pb-2 ${activeTab === 'book' ? 'border-b-2 border-primary' : ''}`}
             >
-              Logout
+              <FaCar className="inline mr-2" />
+              Book a Ride
+            </button>
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`pb-2 ${activeTab === 'profile' ? 'border-b-2 border-primary' : ''}`}
+            >
+              <FaUser className="inline mr-2" />
+              Profile
+            </button>
+            <button
+              onClick={() => setActiveTab('wallet')}
+              className={`pb-2 ${activeTab === 'wallet' ? 'border-b-2 border-primary' : ''}`}
+            >
+              <FaWalletIcon className="inline mr-2" />
+              Wallet
+            </button>
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`pb-2 ${activeTab === 'history' ? 'border-b-2 border-primary' : ''}`}
+            >
+              <FaHistory className="inline mr-2" />
+              History
             </button>
           </div>
-        </header>
-        <main>
-          <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-            <div className="bg-white shadow rounded-lg">
-              <div className="px-4 py-5 sm:p-6">
-                <div className="border-b border-gray-200">
-                  <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-                    <button onClick={() => setActiveTab('home')} className={`${activeTab === 'home' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>Home</button>
-                    <button onClick={() => setActiveTab('profile')} className={`${activeTab === 'profile' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>Profile</button>
-                    <button onClick={() => setActiveTab('wallet')} className={`${activeTab === 'wallet' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>Wallet</button>
-                    <button onClick={() => setActiveTab('history')} className={`${activeTab === 'history' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>History</button>
-                    <button onClick={() => setActiveTab('book')} className={`${activeTab === 'book' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>Book a Ride</button>
-                  </nav>
-                </div>
-                <div className="mt-6">
-                  {renderContent()}
-                </div>
-              </div>
-            </div>
-          </div>
-        </main>
+          {renderContent()}
+        </div>
       </div>
     </AuthGuard>
   )
 }
 
-export default UserDashboard
+// A simple location search component (can be improved with a real geocoding API)
+function LocationSearch({
+  onLocationSelect,
+  placeholder,
+}: {
+  onLocationSelect: (location: Location) => void
+  placeholder: string
+}) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<any[]>([])
+
+  const handleSearch = async () => {
+    if (!query) return
+    // Replace with a real geocoding API like Google Maps Geocoding API
+    // For demo, we'll use OpenStreetMap's Nominatim
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${query}`
+    )
+    const data = await response.json()
+    setResults(data)
+  }
+
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder={placeholder}
+        className="input w-full"
+      />
+      <button onClick={handleSearch} className="absolute right-2 top-2 text-primary">
+        Search
+      </button>
+      {results.length > 0 && (
+        <ul className="absolute z-10 bg-white border rounded w-full mt-1 max-h-48 overflow-y-auto">
+          {results.map((item) => (
+            <li
+              key={item.place_id}
+              onClick={() => {
+                onLocationSelect({
+                  lat: parseFloat(item.lat),
+                  lng: parseFloat(item.lon),
+                  address: item.display_name,
+                })
+                setQuery(item.display_name)
+                setResults([])
+              }}
+              className="p-2 cursor-pointer hover:bg-gray-100"
+            >
+              {item.display_name}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
