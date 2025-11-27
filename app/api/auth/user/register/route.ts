@@ -1,5 +1,5 @@
 // User registration API
-// Handles student registration with university email and OTP verification
+// Handles new student registration and resending OTP for unverified users.
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { generateOTP, sendOTP } from '@/lib/email'
@@ -8,70 +8,64 @@ import { isValidUniversityEmail } from '@/lib/utils'
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('REGISTER API: Received request');
     const body = await request.json()
     const { email, password, firstName, lastName, phone, gender, university } = body
-    console.log('REGISTER API: Request body:', body);
 
-    // Validate input
-    if (!email || !password || !firstName || !lastName || !phone || !gender || !university) {
-      return NextResponse.json(
-        { error: 'All fields are required' },
-        { status: 400 }
-      )
-    }
-
-    // Validate university email format
-    if (!isValidUniversityEmail(email)) {
-      console.log('REGISTER API: Invalid university email format');
-      return NextResponse.json(
-        { error: 'Please use a valid university email address' },
-        { status: 400 }
-      )
+    // Email is the only required field for both registration and resending OTP
+    if (!email) {
+      return NextResponse.json({ error: 'Email is required' }, { status: 400 })
     }
 
     // Check if user already exists
-    console.log('REGISTER API: Checking for existing user with email:', email);
     const existingUser = await prisma.user.findUnique({
       where: { email },
     })
 
     if (existingUser) {
-      console.log('REGISTER API: User exists.');
+      // If user exists, handle OTP resend or return error if already verified.
       if (!existingUser.emailVerified) {
-        console.log('REGISTER API: User is not verified. Resending OTP.');
         // User exists but is not verified, resend OTP
         const otp = generateOTP()
         const otpExpires = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
 
         await prisma.user.update({
           where: { email },
-          data: { otpCode: otp, otpExpires },
+          data: { otp: otp, otpExpiresAt: otpExpires },
         })
 
-        console.log('REGISTER API: Sending OTP to existing unverified user.');
         await sendOTP(email, otp)
-        console.log('REGISTER API: OTP sent to existing unverified user.');
 
-        return NextResponse.json(
-          {
-            message:
-              'This email is already registered but not verified. A new OTP has been sent.',
-            errorCode: 'EMAIL_NOT_VERIFIED',
-          },
-          { status: 400 }
-        )
+        // Return a success response, as the OTP has been resent.
+        return NextResponse.json({
+          message: 'This email is already registered but not verified. A new OTP has been sent.',
+          errorCode: 'EMAIL_NOT_VERIFIED',
+        })
       } else {
-        console.log('REGISTER API: User is already verified.');
         // User is already verified
         return NextResponse.json(
-          { error: 'User with this email already exists' },
+          { error: 'User with this email already exists and is verified.' },
           { status: 400 }
         )
       }
     }
 
-    console.log('REGISTER API: Creating new user.');
+    // If user does not exist, this is a new registration.
+    // Now, validate all other fields required for a new user.
+    if (!password || !firstName || !lastName || !phone || !gender || !university) {
+      return NextResponse.json(
+        { error: 'All fields are required for a new registration' },
+        { status: 400 }
+      )
+    }
+
+    // Validate university email format for new registrations
+    if (!isValidUniversityEmail(email)) {
+      return NextResponse.json(
+        { error: 'Please use a valid university email address' },
+        { status: 400 }
+      )
+    }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10)
 
@@ -79,7 +73,7 @@ export async function POST(request: NextRequest) {
     const otp = generateOTP()
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
 
-    // Create user (email not verified yet)
+    // Create user
     const user = await prisma.user.create({
       data: {
         email,
@@ -89,14 +83,13 @@ export async function POST(request: NextRequest) {
         phone,
         gender,
         university,
-        otpCode: otp,
-        otpExpires,
-        emailVerified: false,
+        otp: otp,
+        otpExpiresAt: otpExpires,
+        emailVerified: null,
       },
     })
-    console.log('REGISTER API: New user created with ID:', user.id);
 
-    // Send OTP email; if sending fails remove user and return error so frontend can surface the problem
+    // Send OTP email
     const emailSent = await sendOTP(email, otp)
     if (!emailSent) {
       console.error('Failed to send OTP email; removing created user')
@@ -115,7 +108,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('REGISTER API: Unhandled error:', error)
     return NextResponse.json(
-      { error: 'Registration failed' },
+      { error: 'An unexpected error occurred during registration.' },
       { status: 500 }
     )
   }

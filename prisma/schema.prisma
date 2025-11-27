@@ -77,14 +77,17 @@ model User {
   id                  String           @id @default(uuid())
   role                UserRole         @default(USER)
   email               String           @unique // University email
-  emailVerified       Boolean          @default(false)
-  // Keep OTP auth facts separated in OtpCode; retain optional fields if used by code paths
-  otpCode             String?
-  otpExpires          DateTime?
+  emailVerified    DateTime?
+  otp              String?
+  otpExpiresAt     DateTime?
+  phone            String?   @unique
+  phoneVerified    Boolean?  @default(false)
+  phoneOtp         String?
+  phoneOtpExpiresAt DateTime?
+
   password            String
   firstName           String
   lastName            String
-  phone               String
   gender              String // "male" or "female"
   university          String
   walletBalance       Float            @default(0.0)
@@ -121,6 +124,9 @@ model Driver {
   carModel        String
   carColor        String
   carPlateNumber  String
+  phoneVerified   Boolean? @default(false)
+  otp             String?
+  otpExpires      DateTime?
   // Move live location to DriverLocation
   isAvailable     Boolean  @default(false)
   averageRating   Float    @default(0.0)

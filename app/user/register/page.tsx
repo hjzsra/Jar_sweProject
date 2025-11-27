@@ -22,6 +22,8 @@ export default function UserRegister() {
   const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
 
+
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -31,7 +33,6 @@ export default function UserRegister() {
       setLoading(false)
       return
     }
-
     try {
       const response = await api.post('/auth/user/register', {
         email: formData.email,
@@ -56,15 +57,14 @@ export default function UserRegister() {
       setLoading(false)
     }
   }
-
+  
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-
     try {
       const response = await api.post('/auth/user/verify-otp', {
         email: formData.email,
-        otpCode: otp,
+        otp: otp,
       })
 
       toast.success(response.data.message)
@@ -75,7 +75,7 @@ export default function UserRegister() {
       setLoading(false)
     }
   }
-
+  
   if (step === 'verify') {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">

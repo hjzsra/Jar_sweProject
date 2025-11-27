@@ -14,6 +14,7 @@ import {
   FaWallet as FaWalletIcon,
   FaHistory,
 } from 'react-icons/fa'
+import { LatLng } from 'leaflet'
 
 const MapComponent = dynamic(() => import('@/components/MapComponent'), {
   ssr: false,
@@ -56,11 +57,43 @@ export default function UserDashboard() {
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null)
   const [loading, setLoading] = useState(false)
   const [rideHistory, setRideHistory] = useState<Ride[]>([])
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [profileData, setProfileData] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+  });
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user')
+    const storedUser = localStorage.getItem('user');
     if (storedUser) {
-      setUser(JSON.parse(storedUser))
+      const parsedUser = JSON.parse(storedUser);
+      setUser(parsedUser);
+      setProfileData({
+        firstName: parsedUser.firstName || '',
+        lastName: parsedUser.lastName || '',
+        phone: parsedUser.phone || '',
+      });
+    }
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setUserLocation([latitude, longitude]);
+          setPickupLocation({
+            lat: latitude,
+            lng: longitude,
+            address: 'Current Location',
+          });
+          toast.success('Your location has been set as pickup.');
+        },
+        () => {
+          toast.error('Could not get your location. Please allow location access and refresh.');
+        }
+      );
     }
   }, [])
 
@@ -78,6 +111,31 @@ export default function UserDashboard() {
     }
   }
 
+  const handleMapClick = async (latlng: LatLng) => {
+    setLoading(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latlng.lat}&lon=${latlng.lng}`
+      );
+      const data = await response.json();
+      const address = data.display_name || 'Selected Location';
+
+      const newLocation = { lat: latlng.lat, lng: latlng.lng, address };
+
+      if (!pickupLocation) {
+        setPickupLocation(newLocation);
+        toast.success('Pickup location set.');
+      } else {
+        setDropoffLocation(newLocation);
+        toast.success('Dropoff location set.');
+      }
+    } catch (error) {
+      toast.error('Could not get address for the selected location.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleFindRide = async () => {
     if (!pickupLocation) {
       toast.error('Please select a pickup location')
@@ -87,13 +145,13 @@ export default function UserDashboard() {
     try {
       const { data } = await api.get('/rides/nearby-drivers', {
         params: {
-          lat: pickupLocation.lat,
-          lng: pickupLocation.lng,
+          latitude: pickupLocation.lat,
+          longitude: pickupLocation.lng,
           radius: 5000, // 5km radius
         },
       })
-      setNearbyDrivers(data)
-      if (data.length === 0) {
+      setNearbyDrivers(data.drivers)
+      if (data.drivers.length === 0) {
         toast('No drivers found nearby.', { icon: '🤷' })
       }
     } catch (error) {
@@ -118,6 +176,7 @@ export default function UserDashboard() {
         dropoffLatitude: dropoffLocation.lat,
         dropoffLongitude: dropoffLocation.lng,
         dropoffAddress: dropoffLocation.address,
+        paymentMethod: 'cash', // Or get from UI
       })
       toast.success('Ride booked successfully!')
       setActiveTab('history')
@@ -147,12 +206,62 @@ export default function UserDashboard() {
     router.push('/user/login')
   }
 
+  const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setProfileData({ ...profileData, [e.target.name]: e.target.value });
+  };
+
+  const handleUpdateProfile = async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.put('/user/profile', profileData);
+      toast.success('Profile updated successfully');
+      setUser(data.user);
+      localStorage.setItem('user', JSON.stringify(data.user));
+    } catch (error) {
+      toast.error('Failed to update profile');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendOtp = async () => {
+    setLoading(true);
+    try {
+      await api.post('/auth/user/send-otp', { phone: profileData.phone });
+      setOtpSent(true);
+      toast.success('OTP sent to your phone');
+    } catch (error) {
+      toast.error('Failed to send OTP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    setLoading(true);
+    try {
+      await api.post('/auth/user/verify-otp', { otp });
+      toast.success('Phone number verified successfully');
+      const { data } = await api.get('/user/profile');
+      setUser(data.user);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      setOtpSent(false);
+    } catch (error) {
+      toast.error('Invalid or expired OTP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const mapCenter = useMemo((): [number, number] => {
+    if (userLocation) {
+      return userLocation;
+    }
     if (pickupLocation) {
       return [pickupLocation.lat, pickupLocation.lng]
     }
     return [24.7136, 46.6753] // Default to Riyadh
-  }, [pickupLocation])
+  }, [pickupLocation, userLocation])
 
   const mapMarkers = useMemo(() => {
     const markers = []
@@ -169,10 +278,12 @@ export default function UserDashboard() {
       })
     }
     nearbyDrivers.forEach((driver) => {
-      markers.push({
-        position: [driver.latitude, driver.longitude] as [number, number],
-        popupText: `${driver.firstName} ${driver.lastName}`,
-      })
+      if (driver.latitude && driver.longitude) {
+        markers.push({
+          position: [driver.latitude, driver.longitude] as [number, number],
+          popupText: `${driver.firstName} ${driver.lastName}`,
+        })
+      }
     })
     return markers
   }, [pickupLocation, dropoffLocation, nearbyDrivers])
@@ -183,15 +294,70 @@ export default function UserDashboard() {
         return user ? (
           <div className="card">
             <h3 className="text-xl font-bold mb-4">My Profile</h3>
-            <p>
-              <strong>Name:</strong> {user.firstName} {user.lastName}
-            </p>
-            <p>
-              <strong>Email:</strong> {user.email}
-            </p>
-            <p>
-              <strong>University:</strong> {user.university}
-            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="label">First Name</label>
+                <input
+                  type="text"
+                  name="firstName"
+                  value={profileData.firstName}
+                  onChange={handleProfileChange}
+                  className="input"
+                />
+              </div>
+              <div>
+                <label className="label">Last Name</label>
+                <input
+                  type="text"
+                  name="lastName"
+                  value={profileData.lastName}
+                  onChange={handleProfileChange}
+                  className="input"
+                />
+              </div>
+              <div>
+                <label className="label">Phone Number</label>
+                <input
+                  type="text"
+                  name="phone"
+                  value={profileData.phone}
+                  onChange={handleProfileChange}
+                  className="input"
+                />
+              </div>
+              <button onClick={handleUpdateProfile} className="btn btn-primary" disabled={loading}>
+                {loading ? 'Saving...' : 'Save Profile'}
+              </button>
+
+              <hr className="my-6" />
+
+              <h4 className="text-lg font-bold">Phone Verification</h4>
+              {user.phoneVerified ? (
+                <p className="text-success">Your phone number is verified.</p>
+              ) : (
+                <div>
+                  <p>Your phone number is not verified.</p>
+                  {!otpSent ? (
+                    <button onClick={handleSendOtp} className="btn btn-secondary mt-2" disabled={loading}>
+                      {loading ? 'Sending...' : 'Send Verification Code'}
+                    </button>
+                  ) : (
+                    <div className="flex gap-2 mt-2">
+                      <input
+                        type="text"
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value)}
+                        placeholder="Enter OTP"
+                        className="input"
+                      />
+                      <button onClick={handleVerifyOtp} className="btn btn-primary" disabled={loading}>
+                        {loading ? 'Verifying...' : 'Verify'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <p>Loading profile...</p>
@@ -243,10 +409,12 @@ export default function UserDashboard() {
               <LocationSearch
                 onLocationSelect={(loc) => handleLocationSelect(loc, 'pickup')}
                 placeholder="Pickup Location"
+                value={pickupLocation?.address}
               />
               <LocationSearch
                 onLocationSelect={(loc) => handleLocationSelect(loc, 'dropoff')}
                 placeholder="Dropoff Location"
+                value={dropoffLocation?.address}
               />
               <button
                 onClick={handleFindRide}
@@ -268,7 +436,7 @@ export default function UserDashboard() {
                           selectedDriver?.id === driver.id ? 'bg-primary text-white' : 'bg-gray-100'
                         }`}
                       >
-                        {driver.firstName} ({driver.distance.toFixed(2)}m away)
+                        {driver.firstName} ({driver.distance ? driver.distance.toFixed(2) + 'km away' : ''})
                       </li>
                     ))}
                   </ul>
@@ -282,8 +450,12 @@ export default function UserDashboard() {
                 </div>
               )}
             </div>
-            <div className="lg:w-2/3 h-64 lg:h-auto card">
-              <MapComponent center={mapCenter} markers={mapMarkers} />
+            <div className="lg:w-2/3 h-96 lg:h-auto card">
+              <MapComponent
+                center={mapCenter}
+                markers={mapMarkers}
+                onMapClick={handleMapClick}
+              />
             </div>
           </div>
         )
@@ -337,23 +509,30 @@ export default function UserDashboard() {
   )
 }
 
-// A simple location search component (can be improved with a real geocoding API)
 function LocationSearch({
   onLocationSelect,
   placeholder,
+  value,
 }: {
   onLocationSelect: (location: Location) => void
   placeholder: string
+  value?: string
 }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<any[]>([])
 
+  useEffect(() => {
+    if (value) {
+      setQuery(value)
+    }
+  }, [value])
+
   const handleSearch = async () => {
     if (!query) return
-    // Replace with a real geocoding API like Google Maps Geocoding API
-    // For demo, we'll use OpenStreetMap's Nominatim
+    // Using OpenStreetMap's Nominatim, bounded to Riyadh
+    const riyadhViewbox = '46.620,24.820,46.820,24.620'; // lng,lat,lng,lat (left,top,right,bottom)
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${query}`
+      `https://nominatim.openstreetmap.org/search?format=json&q=${query}&viewbox=${riyadhViewbox}&bounded=1`
     )
     const data = await response.json()
     setResults(data)
