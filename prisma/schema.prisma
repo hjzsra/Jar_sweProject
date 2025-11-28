@@ -77,17 +77,14 @@ model User {
   id                  String           @id @default(uuid())
   role                UserRole         @default(USER)
   email               String           @unique // University email
-  emailVerified    DateTime?
-  otp              String?
-  otpExpiresAt     DateTime?
-  phone            String?   @unique
-  phoneVerified    Boolean?  @default(false)
-  phoneOtp         String?
-  phoneOtpExpiresAt DateTime?
-
+  emailVerified       Boolean          @default(false)
+  // Keep OTP auth facts separated in OtpCode; retain optional fields if used by code paths
+  otpCode             String?
+  otpExpires          DateTime?
   password            String
   firstName           String
   lastName            String
+  phone               String
   gender              String // "male" or "female"
   university          String
   walletBalance       Float            @default(0.0)
@@ -124,9 +121,6 @@ model Driver {
   carModel        String
   carColor        String
   carPlateNumber  String
-  phoneVerified   Boolean? @default(false)
-  otp             String?
-  otpExpires      DateTime?
   // Move live location to DriverLocation
   isAvailable     Boolean  @default(false)
   averageRating   Float    @default(0.0)
@@ -254,7 +248,7 @@ model Wallet {
   id        String   @id @default(cuid())
   userId    String   @unique
   balance   Int      @default(0) // cents
-  currency  String   @default("SAR")
+  currency  String   @default("USD")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -285,7 +279,7 @@ model Payout {
   id          String    @id @default(cuid())
   driverId    String
   amount      Int
-  currency    String    @default("SAR")
+  currency    String    @default("USD")
   status      String    @default("REQUESTED")
   requestedAt DateTime  @default(now())
   processedAt DateTime?

@@ -5,7 +5,6 @@ import bcrypt from 'bcryptjs'
 import { withAccelerate } from "@prisma/extension-accelerate"
 
 
-
 const prisma = new PrismaClient().$extends(withAccelerate())
 
 async function main() {
@@ -49,7 +48,7 @@ async function main() {
     create: {
       userId: user.id,
       balance: 0,
-      currency: 'SAR',
+      currency: 'USD',
     },
   })
 

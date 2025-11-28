@@ -1,12 +1,6 @@
 // Email utility for sending OTP codes
 // Uses nodemailer to send verification emails
 import nodemailer from 'nodemailer'
-import twilio from 'twilio';
-
-const twilioClient = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
 
 // Create email transporter
 // In production, configure with real SMTP credentials
@@ -23,25 +17,28 @@ const transporter = nodemailer.createTransport({
 // Helper to test SMTP connectivity; useful in logs and manual checks
 export async function verifyTransporter(): Promise<{ ok: boolean; error?: any }> {
   try {
-    console.log('Verifying SMTP transporter...');
     await transporter.verify()
-    console.log('SMTP transporter verified successfully.');
     return { ok: true }
   } catch (err) {
-    console.error('SMTP transporter verification failed:', err);
     return { ok: false, error: err }
   }
 }
 
 // Generate random 6-digit OTP code
 export function generateOTP(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return Math.floor(100000 + Math.random() * 900000).toString()
 }
 
 // Send OTP code to email
 export async function sendOTP(email: string, otp: string): Promise<boolean> {
   try {
-    console.log(`Attempting to send OTP to ${email}`);
+    // verify connection so we get a clear error early
+    const verify = await verifyTransporter()
+    if (!verify.ok) {
+      console.error('SMTP verify failed:', verify.error)
+      return false
+    }
+
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: email,
@@ -58,9 +55,8 @@ export async function sendOTP(email: string, otp: string): Promise<boolean> {
         </div>
       `,
     }
-    console.log('Sending email with subject:', mailOptions.subject);
+
     await transporter.sendMail(mailOptions)
-    console.log(`Email sent successfully to ${email}`);
     return true
   } catch (error) {
     console.error('Error sending email:', error)
@@ -68,34 +64,3 @@ export async function sendOTP(email: string, otp: string): Promise<boolean> {
   }
 }
 
-/**
- * Generates a 6-digit numeric OTP for SMS.
- * @returns {string} The generated OTP.
- */
-export function generateSmsOTP(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-/**
- * Sends an OTP to a specified phone number using Twilio.
- * @param {string} phone - The recipient's phone number in E.164 format.
- * @param {string} otp - The OTP to send.
- */
-export async function sendSmsOTP(phone: string, otp: string): Promise<void> {
-  try {
-    if (!process.env.TWILIO_PHONE_NUMBER) {
-      throw new Error('Twilio phone number is not configured.');
-    }
-
-    await twilioClient.messages.create({
-      body: `Your verification code is: ${otp}`,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to: phone,
-    });
-    console.log(`OTP SMS sent to ${phone}`);
-  } catch (error) {
-    console.error('Failed to send OTP SMS via Twilio:', error);
-    // Depending on requirements, you might want to re-throw or handle this error
-    throw new Error('Failed to send SMS.');
-  }
-}

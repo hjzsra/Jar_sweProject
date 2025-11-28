@@ -35,16 +35,10 @@ export default function VerifyEmailPage() {
     e.preventDefault()
     setLoading(true)
 
-    if (!email || !otp) {
-      toast.error('Please enter your email and the OTP code.')
-      setLoading(false)
-      return
-    }
-
     try {
       await api.post('/auth/user/verify-otp', {
         email,
-        otp: otp,
+        otpCode: otp,
       })
 
       toast.success('Email verified successfully! Redirecting to login...')
@@ -67,8 +61,7 @@ export default function VerifyEmailPage() {
     setResendLoading(true)
 
     try {
-      // The register endpoint handles resending OTP for unverified users
-      await api.post('/auth/user/register', { email })
+      await api.post('/auth/user/resend-otp', { email })
       toast.success('OTP resent successfully! Check your email.')
       setResendTimer(60) // 60 second cooldown
     } catch (error: any) {
@@ -115,6 +108,7 @@ export default function VerifyEmailPage() {
                 id="otp"
                 name="otp"
                 type="text"
+                required
                 className="input"
                 placeholder="Enter 6-digit code"
                 value={otp}

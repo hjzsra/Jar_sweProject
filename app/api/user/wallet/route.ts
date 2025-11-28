@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Add funds to wallet (for card or mobile pay)
+// Add funds to wallet (for Apple Pay)
 export async function POST(request: NextRequest) {
   try {
     const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -48,7 +48,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const body = await request.json()
+<<<<<<< HEAD
     const { amount, paymentMethod } = body
+=======
+    const { amount } = body
+>>>>>>> 4225602486f8bb422bde2230e3d2deb1f0140460
 
     if (!amount || !paymentMethod) {
       return NextResponse.json(
@@ -56,7 +60,14 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+<<<<<<< HEAD
     const updatedUser = await prisma.user.update({
+=======
+
+    // In production, integrate with Apple Pay API here
+    // For now, just add to wallet
+    const user = await prisma.user.update({
+>>>>>>> 4225602486f8bb422bde2230e3d2deb1f0140460
       where: { id: payload.userId },
       data: {
         walletBalance: {
@@ -75,3 +86,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to add funds' }, { status: 500 })
   }
 }
+

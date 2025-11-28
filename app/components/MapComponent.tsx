@@ -1,6 +1,11 @@
 'use client'
+<<<<<<< HEAD:app/components/MapComponent.tsx
 
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet'
+=======
+import useMAp
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
+>>>>>>> 4225602486f8bb422bde2230e3d2deb1f0140460:components/Map.tsx
 import 'leaflet/dist/leaflet.css'
 import L, { LatLngExpression } from 'leaflet'
 
