@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { verifyLicense } from '@/lib/mot-api'
 import bcrypt from 'bcryptjs'
 import { isValidUniversityEmail } from '@/lib/utils'
+import { generateSmsOTP, sendSmsOTP } from '@/lib/email' // Import SMS OTP functions
 
 export async function POST(request: NextRequest) {
   try {
@@ -103,6 +104,10 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10)
 
+    // Generate OTP
+    const otp = generateSmsOTP();
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // OTP expires in 10 minutes
+
     // Create driver
     const driver = await prisma.driver.create({
       data: {
@@ -120,11 +125,18 @@ export async function POST(request: NextRequest) {
         carColor,
         carPlateNumber,
         isAvailable: false,
+        otp,
+        otpExpires,
       },
     })
 
+    // Send OTP to phone if provided
+    if (phone) {
+      await sendSmsOTP(phone, otp);
+    }
+
     return NextResponse.json({
-      message: 'Driver registration successful. License verified.',
+      message: 'Driver registration successful. Please verify your phone number.',
       driverId: driver.id,
     })
   } catch (error) {
@@ -135,4 +147,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

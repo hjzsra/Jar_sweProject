@@ -2,6 +2,7 @@
 // Allows driver to accept a ride request
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { RideStatus, UserRole } from '@prisma/client'
 import { verifyToken } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = verifyToken(token)
-    if (!payload || payload.role !== 'driver') {
+    if (!payload || payload.role !== UserRole.DRIVER) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if ride is in pending status
-    if (ride.status !== 'pending') {
+    if (ride.status !== RideStatus.PENDING) {
       return NextResponse.json(
         { error: 'Ride is not in pending status' },
         { status: 400 }
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
     const updatedRide = await prisma.ride.update({
       where: { id: rideId },
       data: {
-        status: 'accepted',
+        status: RideStatus.ACCEPTED,
       },
     })
 

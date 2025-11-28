@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Add funds to wallet (for Apple Pay)
+// Add funds to wallet (for card or mobile pay)
 export async function POST(request: NextRequest) {
   try {
     const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { amount } = body
+    const { amount, paymentMethod } = body // Added paymentMethod
 
     if (!amount || amount <= 0) {
       return NextResponse.json(
@@ -56,8 +56,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // In production, integrate with Apple Pay API here
-    // For now, just add to wallet
+    if (!paymentMethod || !['card', 'mobilePay'].includes(paymentMethod)) {
+      return NextResponse.json(
+        { error: 'Valid payment method is required (card or mobilePay)' },
+        { status: 400 }
+      )
+    }
+
+    // In production, integrate with a payment gateway like Stripe or Braintree
+    // For now, simulate payment processing based on the method
+    switch (paymentMethod) {
+      case 'card':
+        // Simulate card processing
+        console.log(`Processing card payment of ${amount}`);
+        break;
+      case 'mobilePay':
+        // Simulate mobile payment (e.g., Apple Pay, Google Pay)
+        console.log(`Processing mobile payment of ${amount}`);
+        break;
+      default:
+        // This case should not be reached due to the validation above
+        return NextResponse.json(
+          { error: 'Invalid payment method' },
+          { status: 400 }
+        );
+    }
+
     const user = await prisma.user.update({
       where: { id: payload.userId },
       data: {
@@ -77,4 +101,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to add funds' }, { status: 500 })
   }
 }
-

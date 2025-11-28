@@ -7,6 +7,141 @@ import AuthGuard from '@/components/AuthGuard'
 import api from '@/lib/api'
 import toast from 'react-hot-toast'
 
+// Ride Request Card Component
+function RideRequestCard({ request, onUpdate }: { request: any; onUpdate: () => void }) {
+  const [loading, setLoading] = useState(false)
+
+  const handleAccept = async () => {
+    setLoading(true)
+    try {
+      await api.post('/rides/driver/accept', { rideId: request.id })
+      toast.success('Ride accepted!')
+      onUpdate()
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to accept ride')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleReject = async () => {
+    const reason = prompt('Reason for rejection (optional):')
+    setLoading(true)
+    try {
+      await api.post('/rides/driver/reject', { rideId: request.id, reason })
+      toast.success('Ride rejected')
+      onUpdate()
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to reject ride')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="p-4 border rounded-lg">
+      <div className="flex justify-between items-start">
+        <div>
+          <p className="font-medium">
+            {request.pickupAddress} → {request.dropoffAddress}
+          </p>
+          <p className="text-sm text-secondary">
+            Passenger: {request.passenger?.firstName} {request.passenger?.lastName}
+          </p>
+          <p className="text-sm text-secondary">
+            Distance: {request.distance?.toFixed(2)} km | Cost: ${request.cost?.toFixed(2)}
+          </p>
+          {request.isPreBooked && request.scheduledTime && (
+            <p className="text-sm text-secondary">
+              Scheduled: {new Date(request.scheduledTime).toLocaleString()}
+            </p>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={handleAccept}
+            className="btn btn-primary"
+            disabled={loading}
+          >
+            Accept
+          </button>
+          <button
+            onClick={handleReject}
+            className="btn btn-outline"
+            disabled={loading}
+          >
+            Reject
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Active Ride Card Component
+function ActiveRideCard({ ride }: { ride: any }) {
+  const [loading, setLoading] = useState(false)
+
+  const handleAction = async (action: string) => {
+    setLoading(true)
+    try {
+      await api.post(`/rides/driver/${action}`, { rideId: ride.id })
+      toast.success(`Ride ${action}ed`)
+      window.location.reload()
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || `Failed to ${action} ride`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="p-4 border rounded-lg">
+      <div>
+        <p className="font-medium">
+          {ride.pickupAddress} → {ride.dropoffAddress}
+        </p>
+        <p className="text-sm text-secondary">Status: {ride.status}</p>
+      </div>
+      <div className="mt-4 flex gap-2">
+        {ride.status === 'accepted' && (
+          <button
+            onClick={() => handleAction('arrived')}
+            className="btn btn-primary"
+            disabled={loading}
+          >
+            I've Arrived
+          </button>
+        )}
+        {ride.status === 'driver_arrived' && (
+          <button
+            onClick={() => handleAction('start')}
+            className="btn btn-primary"
+            disabled={loading}
+          >
+            Start Trip
+          </button>
+        )}
+        {ride.status === 'in_progress' && (
+          <button
+            onClick={() => handleAction('end')}
+            className="btn btn-primary"
+            disabled={loading}
+          >
+            End Trip
+          </button>
+        )}
+        <button
+          onClick={() => window.open(`/driver/chat?rideId=${ride.id}`, '_blank')}
+          className="btn btn-outline"
+        >
+          Chat
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function DriverDashboard() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<'home' | 'requests' | 'active' | 'history'>('home')
@@ -244,139 +379,3 @@ export default function DriverDashboard() {
     </AuthGuard>
   )
 }
-
-// Ride Request Card Component
-function RideRequestCard({ request, onUpdate }: { request: any; onUpdate: () => void }) {
-  const [loading, setLoading] = useState(false)
-
-  const handleAccept = async () => {
-    setLoading(true)
-    try {
-      await api.post('/rides/driver/accept', { rideId: request.id })
-      toast.success('Ride accepted!')
-      onUpdate()
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to accept ride')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleReject = async () => {
-    const reason = prompt('Reason for rejection (optional):')
-    setLoading(true)
-    try {
-      await api.post('/rides/driver/reject', { rideId: request.id, reason })
-      toast.success('Ride rejected')
-      onUpdate()
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to reject ride')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="p-4 border rounded-lg">
-      <div className="flex justify-between items-start">
-        <div>
-          <p className="font-medium">
-            {request.pickupAddress} → {request.dropoffAddress}
-          </p>
-          <p className="text-sm text-secondary">
-            Passenger: {request.passenger?.firstName} {request.passenger?.lastName}
-          </p>
-          <p className="text-sm text-secondary">
-            Distance: {request.distance?.toFixed(2)} km | Cost: ${request.cost?.toFixed(2)}
-          </p>
-          {request.isPreBooked && request.scheduledTime && (
-            <p className="text-sm text-secondary">
-              Scheduled: {new Date(request.scheduledTime).toLocaleString()}
-            </p>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={handleAccept}
-            className="btn btn-primary"
-            disabled={loading}
-          >
-            Accept
-          </button>
-          <button
-            onClick={handleReject}
-            className="btn btn-outline"
-            disabled={loading}
-          >
-            Reject
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Active Ride Card Component
-function ActiveRideCard({ ride }: { ride: any }) {
-  const [loading, setLoading] = useState(false)
-
-  const handleAction = async (action: string) => {
-    setLoading(true)
-    try {
-      await api.post(`/rides/driver/${action}`, { rideId: ride.id })
-      toast.success(`Ride ${action}ed`)
-      window.location.reload()
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || `Failed to ${action} ride`)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="p-4 border rounded-lg">
-      <div>
-        <p className="font-medium">
-          {ride.pickupAddress} → {ride.dropoffAddress}
-        </p>
-        <p className="text-sm text-secondary">Status: {ride.status}</p>
-      </div>
-      <div className="mt-4 flex gap-2">
-        {ride.status === 'accepted' && (
-          <button
-            onClick={() => handleAction('arrived')}
-            className="btn btn-primary"
-            disabled={loading}
-          >
-            I've Arrived
-          </button>
-        )}
-        {ride.status === 'driver_arrived' && (
-          <button
-            onClick={() => handleAction('start')}
-            className="btn btn-primary"
-            disabled={loading}
-          >
-            Start Trip
-          </button>
-        )}
-        {ride.status === 'in_progress' && (
-          <button
-            onClick={() => handleAction('end')}
-            className="btn btn-primary"
-            disabled={loading}
-          >
-            End Trip
-          </button>
-        )}
-        <button
-          onClick={() => window.open(`/driver/chat?rideId=${ride.id}`, '_blank')}
-          className="btn btn-outline"
-        >
-          Chat
-        </button>
-      </div>
-    </div>
-  )
-}
-

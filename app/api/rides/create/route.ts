@@ -2,6 +2,7 @@
 // Allows users to create a ride request (immediate or pre-booked)
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { PaymentMethod, RideStatus, UserRole } from '@prisma/client'
 import { verifyToken } from '@/lib/auth'
 import { calculateDistance } from '@/lib/utils'
 
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = verifyToken(token)
-    if (!payload || payload.role !== 'user') {
+    if (!payload || payload.role !== UserRole.USER) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -115,10 +116,10 @@ export async function POST(request: NextRequest) {
         dropoffAddress,
         scheduledTime: isPreBooked && scheduledTime ? new Date(scheduledTime) : null,
         isPreBooked: isPreBooked || false,
-        paymentMethod,
+        paymentMethod: paymentMethod === 'apple_pay' ? PaymentMethod.APPLE_PAY : PaymentMethod.CASH,
         cost: baseCost,
         costPerPassenger,
-        status: 'pending',
+        status: RideStatus.PENDING,
       },
     })
 

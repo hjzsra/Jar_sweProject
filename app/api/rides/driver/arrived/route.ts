@@ -2,6 +2,7 @@
 // Driver confirms they have arrived at pickup location
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { RideStatus, UserRole } from '@prisma/client'
 import { verifyToken } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = verifyToken(token)
-    if (!payload || payload.role !== 'driver') {
+    if (!payload || payload.role !== UserRole.DRIVER) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if ride is accepted
-    if (ride.status !== 'accepted') {
+    if (ride.status !== RideStatus.ACCEPTED) {
       return NextResponse.json(
         { error: 'Ride must be accepted first' },
         { status: 400 }
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
     const updatedRide = await prisma.ride.update({
       where: { id: rideId },
       data: {
-        status: 'driver_arrived',
+        status: RideStatus.DRIVER_ARRIVED,
         driverArrivedAt: new Date(),
       },
     })

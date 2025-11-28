@@ -2,6 +2,7 @@
 // Authenticates admin users
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { UserRole } from '@prisma/client'
 import { generateToken } from '@/lib/auth'
 import bcrypt from 'bcryptjs'
 
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
     const token = generateToken({
       userId: admin.id,
       email: admin.email,
-      role: 'admin',
+      role: UserRole.ADMIN,
     })
 
     return NextResponse.json({

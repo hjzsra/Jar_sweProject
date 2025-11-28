@@ -1,69 +1,201 @@
-// User dashboard page
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import AuthGuard from '@/components/AuthGuard'
+import dynamic from 'next/dynamic'
 import api from '@/lib/api'
 import toast from 'react-hot-toast'
+import AuthGuard from '@/components/AuthGuard'
+import Wallet from '@/components/Wallet'
+import {
+  FaUser,
+  FaMapMarkerAlt,
+  FaCar,
+  FaWallet as FaWalletIcon,
+  FaHistory,
+} from 'react-icons/fa'
+import { LatLng } from 'leaflet'
+
+const MapComponent = dynamic(() => import('@/components/MapComponent'), {
+  ssr: false,
+})
+
+type Location = {
+  lat: number
+  lng: number
+  address: string
+}
+
+type Driver = {
+  id: string
+  firstName: string
+  lastName: string
+  latitude: number
+  longitude: number
+  distance: number
+}
+
+type Ride = {
+  id: string
+  status: string
+  driver: {
+    firstName: string
+    lastName: string
+  }
+  pickupAddress: string
+  dropoffAddress: string
+  createdAt: string
+}
 
 export default function UserDashboard() {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<'home' | 'profile' | 'wallet' | 'history' | 'book'>('home')
   const [user, setUser] = useState<any>(null)
-  const [walletBalance, setWalletBalance] = useState(0)
-  const [tripHistory, setTripHistory] = useState<any[]>([])
-  const [nearbyDrivers, setNearbyDrivers] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState('book')
+  const [pickupLocation, setPickupLocation] = useState<Location | null>(null)
+  const [dropoffLocation, setDropoffLocation] = useState<Location | null>(null)
+  const [nearbyDrivers, setNearbyDrivers] = useState<Driver[]>([])
+  const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [rideHistory, setRideHistory] = useState<Ride[]>([])
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [profileData, setProfileData] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+  });
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
 
   useEffect(() => {
-    loadUserData()
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      const parsedUser = JSON.parse(storedUser);
+      setUser(parsedUser);
+      setProfileData({
+        firstName: parsedUser.firstName || '',
+        lastName: parsedUser.lastName || '',
+        phone: parsedUser.phone || '',
+      });
+    }
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setUserLocation([latitude, longitude]);
+          setPickupLocation({
+            lat: latitude,
+            lng: longitude,
+            address: 'Current Location',
+          });
+          toast.success('Your location has been set as pickup.');
+        },
+        () => {
+          toast.error('Could not get your location. Please allow location access and refresh.');
+        }
+      );
+    }
   }, [])
 
-  const loadUserData = async () => {
+  useEffect(() => {
+    if (activeTab === 'history') {
+      fetchRideHistory()
+    }
+  }, [activeTab])
+
+  const handleLocationSelect = (location: Location, type: 'pickup' | 'dropoff') => {
+    if (type === 'pickup') {
+      setPickupLocation(location)
+    } else {
+      setDropoffLocation(location)
+    }
+  }
+
+  const handleMapClick = async (latlng: LatLng) => {
+    setLoading(true);
     try {
-      const [profileRes, walletRes] = await Promise.all([
-        api.get('/user/profile'),
-        api.get('/user/wallet'),
-      ])
-      setUser(profileRes.data.user)
-      setWalletBalance(walletRes.data.balance)
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latlng.lat}&lon=${latlng.lng}`
+      );
+      const data = await response.json();
+      const address = data.display_name || 'Selected Location';
+
+      const newLocation = { lat: latlng.lat, lng: latlng.lng, address };
+
+      if (!pickupLocation) {
+        setPickupLocation(newLocation);
+        toast.success('Pickup location set.');
+      } else {
+        setDropoffLocation(newLocation);
+        toast.success('Dropoff location set.');
+      }
     } catch (error) {
-      toast.error('Failed to load user data')
+      toast.error('Could not get address for the selected location.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFindRide = async () => {
+    if (!pickupLocation) {
+      toast.error('Please select a pickup location')
+      return
+    }
+    setLoading(true)
+    try {
+      const { data } = await api.get('/rides/nearby-drivers', {
+        params: {
+          latitude: pickupLocation.lat,
+          longitude: pickupLocation.lng,
+          radius: 5000, // 5km radius
+        },
+      })
+      setNearbyDrivers(data.drivers)
+      if (data.drivers.length === 0) {
+        toast('No drivers found nearby.', { icon: '🤷' })
+      }
+    } catch (error) {
+      toast.error('Failed to find nearby drivers')
     } finally {
       setLoading(false)
     }
   }
 
-  const loadTripHistory = async () => {
+  const handleBookRide = async () => {
+    if (!selectedDriver || !pickupLocation || !dropoffLocation) {
+      toast.error('Please select a driver and locations.')
+      return
+    }
+    setLoading(true)
     try {
-      const response = await api.get('/user/trip-history')
-      setTripHistory(response.data.rides)
+      const response = await api.post('/rides/create', {
+        driverId: selectedDriver.id,
+        pickupLatitude: pickupLocation.lat,
+        pickupLongitude: pickupLocation.lng,
+        pickupAddress: pickupLocation.address,
+        dropoffLatitude: dropoffLocation.lat,
+        dropoffLongitude: dropoffLocation.lng,
+        dropoffAddress: dropoffLocation.address,
+        paymentMethod: 'cash', // Or get from UI
+      })
+      toast.success('Ride booked successfully!')
+      setActiveTab('history')
     } catch (error) {
-      toast.error('Failed to load trip history')
+      toast.error('Failed to book ride.')
+    } finally {
+      setLoading(false)
     }
   }
 
-  const loadNearbyDrivers = async () => {
+  const fetchRideHistory = async () => {
+    setLoading(true)
     try {
-      // Get user location (in production, use geolocation API)
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const response = await api.get('/rides/nearby-drivers', {
-            params: {
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-              radius: 5,
-            },
-          })
-          setNearbyDrivers(response.data.drivers)
-        },
-        () => {
-          toast.error('Please enable location services')
-        }
-      )
+      const { data } = await api.get('/user/trip-history')
+      setRideHistory(data)
     } catch (error) {
-      toast.error('Failed to load nearby drivers')
+      toast.error('Failed to fetch ride history')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -71,490 +203,374 @@ export default function UserDashboard() {
     localStorage.removeItem('token')
     localStorage.removeItem('role')
     localStorage.removeItem('user')
-    router.push('/')
+    router.push('/user/login')
   }
 
-  if (loading) {
-    return (
-      <AuthGuard requiredRole="user">
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <div className="text-secondary">Loading...</div>
-        </div>
-      </AuthGuard>
-    )
+  const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setProfileData({ ...profileData, [e.target.name]: e.target.value });
+  };
+
+  const handleUpdateProfile = async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.put('/user/profile', profileData);
+      toast.success('Profile updated successfully');
+      setUser(data.user);
+      localStorage.setItem('user', JSON.stringify(data.user));
+    } catch (error) {
+      toast.error('Failed to update profile');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendOtp = async () => {
+    setLoading(true);
+    try {
+      await api.post('/auth/user/send-otp', { phone: profileData.phone });
+      setOtpSent(true);
+      toast.success('OTP sent to your phone');
+    } catch (error) {
+      toast.error('Failed to send OTP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    setLoading(true);
+    try {
+      await api.post('/auth/user/verify-otp', { otp });
+      toast.success('Phone number verified successfully');
+      const { data } = await api.get('/user/profile');
+      setUser(data.user);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      setOtpSent(false);
+    } catch (error) {
+      toast.error('Invalid or expired OTP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const mapCenter = useMemo((): [number, number] => {
+    if (userLocation) {
+      return userLocation;
+    }
+    if (pickupLocation) {
+      return [pickupLocation.lat, pickupLocation.lng]
+    }
+    return [24.7136, 46.6753] // Default to Riyadh
+  }, [pickupLocation, userLocation])
+
+  const mapMarkers = useMemo(() => {
+    const markers = []
+    if (pickupLocation) {
+      markers.push({
+        position: [pickupLocation.lat, pickupLocation.lng] as [number, number],
+        popupText: `Pickup: ${pickupLocation.address}`,
+      })
+    }
+    if (dropoffLocation) {
+      markers.push({
+        position: [dropoffLocation.lat, dropoffLocation.lng] as [number, number],
+        popupText: `Dropoff: ${dropoffLocation.address}`,
+      })
+    }
+    nearbyDrivers.forEach((driver) => {
+      if (driver.latitude && driver.longitude) {
+        markers.push({
+          position: [driver.latitude, driver.longitude] as [number, number],
+          popupText: `${driver.firstName} ${driver.lastName}`,
+        })
+      }
+    })
+    return markers
+  }, [pickupLocation, dropoffLocation, nearbyDrivers])
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'profile':
+        return user ? (
+          <div className="card">
+            <h3 className="text-xl font-bold mb-4">My Profile</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="label">First Name</label>
+                <input
+                  type="text"
+                  name="firstName"
+                  value={profileData.firstName}
+                  onChange={handleProfileChange}
+                  className="input"
+                />
+              </div>
+              <div>
+                <label className="label">Last Name</label>
+                <input
+                  type="text"
+                  name="lastName"
+                  value={profileData.lastName}
+                  onChange={handleProfileChange}
+                  className="input"
+                />
+              </div>
+              <div>
+                <label className="label">Phone Number</label>
+                <input
+                  type="text"
+                  name="phone"
+                  value={profileData.phone}
+                  onChange={handleProfileChange}
+                  className="input"
+                />
+              </div>
+              <button onClick={handleUpdateProfile} className="btn btn-primary" disabled={loading}>
+                {loading ? 'Saving...' : 'Save Profile'}
+              </button>
+
+              <hr className="my-6" />
+
+              <h4 className="text-lg font-bold">Phone Verification</h4>
+              {user.phoneVerified ? (
+                <p className="text-success">Your phone number is verified.</p>
+              ) : (
+                <div>
+                  <p>Your phone number is not verified.</p>
+                  {!otpSent ? (
+                    <button onClick={handleSendOtp} className="btn btn-secondary mt-2" disabled={loading}>
+                      {loading ? 'Sending...' : 'Send Verification Code'}
+                    </button>
+                  ) : (
+                    <div className="flex gap-2 mt-2">
+                      <input
+                        type="text"
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value)}
+                        placeholder="Enter OTP"
+                        className="input"
+                      />
+                      <button onClick={handleVerifyOtp} className="btn btn-primary" disabled={loading}>
+                        {loading ? 'Verifying...' : 'Verify'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <p>Loading profile...</p>
+        )
+      case 'wallet':
+        return <Wallet />
+      case 'history':
+        return (
+          <div className="card">
+            <h3 className="text-xl font-bold mb-4">Ride History</h3>
+            {loading && <p>Loading history...</p>}
+            {!loading && rideHistory.length === 0 && <p>No rides yet.</p>}
+            <div className="space-y-4">
+              {rideHistory.map((ride) => (
+                <div key={ride.id} className="border p-4 rounded-lg">
+                  <p>
+                    <strong>Driver:</strong> {ride.driver.firstName} {ride.driver.lastName}
+                  </p>
+                  <p>
+                    <strong>From:</strong> {ride.pickupAddress}
+                  </p>
+                  <p>
+                    <strong>To:</strong> {ride.dropoffAddress}
+                  </p>
+                  <p>
+                    <strong>Status:</strong> {ride.status}
+                  </p>
+                  <p>
+                    <strong>Date:</strong> {new Date(ride.createdAt).toLocaleString()}
+                  </p>
+                  {ride.status === 'IN_PROGRESS' && (
+                    <button
+                      onClick={() => router.push(`/user/chat?rideId=${ride.id}`)}
+                      className="btn btn-secondary mt-2"
+                    >
+                      Chat with Driver
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      case 'book':
+      default:
+        return (
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="lg:w-1/3 card">
+              <LocationSearch
+                onLocationSelect={(loc) => handleLocationSelect(loc, 'pickup')}
+                placeholder="Pickup Location"
+                value={pickupLocation?.address}
+              />
+              <LocationSearch
+                onLocationSelect={(loc) => handleLocationSelect(loc, 'dropoff')}
+                placeholder="Dropoff Location"
+                value={dropoffLocation?.address}
+              />
+              <button
+                onClick={handleFindRide}
+                className="btn btn-primary w-full mt-4"
+                disabled={loading || !pickupLocation}
+              >
+                {loading ? 'Finding...' : 'Find a Ride'}
+              </button>
+
+              {nearbyDrivers.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="font-bold">Nearby Drivers:</h4>
+                  <ul className="space-y-2 mt-2">
+                    {nearbyDrivers.map((driver) => (
+                      <li
+                        key={driver.id}
+                        onClick={() => setSelectedDriver(driver)}
+                        className={`p-2 rounded cursor-pointer ${
+                          selectedDriver?.id === driver.id ? 'bg-primary text-white' : 'bg-gray-100'
+                        }`}
+                      >
+                        {driver.firstName} ({driver.distance ? driver.distance.toFixed(2) + 'km away' : ''})
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    onClick={handleBookRide}
+                    className="btn btn-accent w-full mt-4"
+                    disabled={loading || !selectedDriver || !dropoffLocation}
+                  >
+                    {loading ? 'Booking...' : 'Book Ride'}
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="lg:w-2/3 h-96 lg:h-auto card">
+              <MapComponent
+                center={mapCenter}
+                markers={mapMarkers}
+                onMapClick={handleMapClick}
+              />
+            </div>
+          </div>
+        )
+    }
   }
 
   return (
     <AuthGuard requiredRole="user">
       <div className="min-h-screen bg-background">
-        <nav className="bg-white shadow-sm p-4">
-          <div className="max-w-7xl mx-auto flex justify-between items-center">
-            <h1 className="text-xl font-bold text-primary">Student Ride Sharing</h1>
-            <div className="flex gap-4 items-center">
-              <span className="text-secondary">{user?.firstName} {user?.lastName}</span>
-              <button onClick={handleLogout} className="btn btn-outline">
-                Logout
-              </button>
-            </div>
-          </div>
+        <nav className="bg-white shadow-sm p-4 flex justify-between items-center">
+          <h1 className="text-xl font-bold text-primary">Dashboard</h1>
+          <button onClick={handleLogout} className="btn btn-outline">
+            Logout
+          </button>
         </nav>
-
-        <div className="max-w-7xl mx-auto p-4">
-          <div className="flex gap-4 mb-6">
+        <div className="p-4">
+          <div className="flex space-x-4 mb-4 border-b">
             <button
-              onClick={() => setActiveTab('home')}
-              className={`btn ${activeTab === 'home' ? 'btn-primary' : 'btn-outline'}`}
+              onClick={() => setActiveTab('book')}
+              className={`pb-2 ${activeTab === 'book' ? 'border-b-2 border-primary' : ''}`}
             >
-              Home
+              <FaCar className="inline mr-2" />
+              Book a Ride
             </button>
             <button
-              onClick={() => {
-                setActiveTab('book')
-                loadNearbyDrivers()
-              }}
-              className={`btn ${activeTab === 'book' ? 'btn-primary' : 'btn-outline'}`}
+              onClick={() => setActiveTab('profile')}
+              className={`pb-2 ${activeTab === 'profile' ? 'border-b-2 border-primary' : ''}`}
             >
-              Book Ride
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab('profile')
-                loadUserData()
-              }}
-              className={`btn ${activeTab === 'profile' ? 'btn-primary' : 'btn-outline'}`}
-            >
+              <FaUser className="inline mr-2" />
               Profile
             </button>
             <button
-              onClick={() => {
-                setActiveTab('wallet')
-                loadUserData()
-              }}
-              className={`btn ${activeTab === 'wallet' ? 'btn-primary' : 'btn-outline'}`}
+              onClick={() => setActiveTab('wallet')}
+              className={`pb-2 ${activeTab === 'wallet' ? 'border-b-2 border-primary' : ''}`}
             >
+              <FaWalletIcon className="inline mr-2" />
               Wallet
             </button>
             <button
-              onClick={() => {
-                setActiveTab('history')
-                loadTripHistory()
-              }}
-              className={`btn ${activeTab === 'history' ? 'btn-primary' : 'btn-outline'}`}
+              onClick={() => setActiveTab('history')}
+              className={`pb-2 ${activeTab === 'history' ? 'border-b-2 border-primary' : ''}`}
             >
-              Trip History
-            </button>
-            <button
-              onClick={() => router.push('/support')}
-              className="btn btn-outline"
-            >
-              Support
+              <FaHistory className="inline mr-2" />
+              History
             </button>
           </div>
-
-          {activeTab === 'home' && (
-            <div className="card">
-              <h2 className="text-2xl font-bold mb-4">Welcome, {user?.firstName}!</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 bg-primary text-white rounded-lg">
-                  <p className="text-sm">Wallet Balance</p>
-                  <p className="text-2xl font-bold">${walletBalance.toFixed(2)}</p>
-                </div>
-                <div className="p-4 bg-accent text-white rounded-lg">
-                  <p className="text-sm">Total Trips</p>
-                  <p className="text-2xl font-bold">{tripHistory.length}</p>
-                </div>
-                <div className="p-4 bg-secondary text-white rounded-lg">
-                  <p className="text-sm">University</p>
-                  <p className="text-lg font-bold">{user?.university}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'book' && (
-            <div className="card">
-              <h2 className="text-2xl font-bold mb-4">Book a Ride</h2>
-              <BookRideForm nearbyDrivers={nearbyDrivers} />
-            </div>
-          )}
-
-          {activeTab === 'profile' && (
-            <div className="card">
-              <h2 className="text-2xl font-bold mb-4">Profile</h2>
-              <UserProfile user={user} onUpdate={loadUserData} />
-            </div>
-          )}
-
-          {activeTab === 'wallet' && (
-            <div className="card">
-              <h2 className="text-2xl font-bold mb-4">Wallet</h2>
-              <WalletSection balance={walletBalance} onUpdate={loadUserData} />
-            </div>
-          )}
-
-          {activeTab === 'history' && (
-            <div className="card">
-              <h2 className="text-2xl font-bold mb-4">Trip History</h2>
-              <TripHistory rides={tripHistory} />
-            </div>
-          )}
+          {renderContent()}
         </div>
       </div>
     </AuthGuard>
   )
 }
 
-// Book Ride Form Component
-function BookRideForm({ nearbyDrivers }: { nearbyDrivers: any[] }) {
-  const [formData, setFormData] = useState({
-    driverId: '',
-    pickupAddress: '',
-    dropoffAddress: '',
-    isPreBooked: false,
-    scheduledTime: '',
-    paymentMethod: 'cash',
-  })
-  const [loading, setLoading] = useState(false)
+function LocationSearch({
+  onLocationSelect,
+  placeholder,
+  value,
+}: {
+  onLocationSelect: (location: Location) => void
+  placeholder: string
+  value?: string
+}) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<any[]>([])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-
-    try {
-      // Get coordinates from addresses (simplified - in production use geocoding)
-      const response = await api.post('/rides/create', {
-        ...formData,
-        pickupLatitude: 0, // Replace with geocoding
-        pickupLongitude: 0,
-        dropoffLatitude: 0,
-        dropoffLongitude: 0,
-      })
-      toast.success('Ride request created!')
-      setFormData({
-        driverId: '',
-        pickupAddress: '',
-        dropoffAddress: '',
-        isPreBooked: false,
-        scheduledTime: '',
-        paymentMethod: 'cash',
-      })
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to create ride')
-    } finally {
-      setLoading(false)
+  useEffect(() => {
+    if (value) {
+      setQuery(value)
     }
+  }, [value])
+
+  const handleSearch = async () => {
+    if (!query) return
+    // Using OpenStreetMap's Nominatim, bounded to Riyadh
+    const riyadhViewbox = '46.620,24.820,46.820,24.620'; // lng,lat,lng,lat (left,top,right,bottom)
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${query}&viewbox=${riyadhViewbox}&bounded=1`
+    )
+    const data = await response.json()
+    setResults(data)
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium mb-2">Select Driver</label>
-        <select
-          value={formData.driverId}
-          onChange={(e) => setFormData({ ...formData, driverId: e.target.value })}
-          className="input"
-          required
-        >
-          <option value="">Choose a driver</option>
-          {nearbyDrivers.map((driver) => (
-            <option key={driver.id} value={driver.id}>
-              {driver.firstName} {driver.lastName} - {driver.carModel} ({driver.distance?.toFixed(2)} km away) ⭐ {driver.averageRating?.toFixed(1) || 'N/A'}
-            </option>
+    <div className="relative">
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder={placeholder}
+        className="input w-full"
+      />
+      <button onClick={handleSearch} className="absolute right-2 top-2 text-primary">
+        Search
+      </button>
+      {results.length > 0 && (
+        <ul className="absolute z-10 bg-white border rounded w-full mt-1 max-h-48 overflow-y-auto">
+          {results.map((item) => (
+            <li
+              key={item.place_id}
+              onClick={() => {
+                onLocationSelect({
+                  lat: parseFloat(item.lat),
+                  lng: parseFloat(item.lon),
+                  address: item.display_name,
+                })
+                setQuery(item.display_name)
+                setResults([])
+              }}
+              className="p-2 cursor-pointer hover:bg-gray-100"
+            >
+              {item.display_name}
+            </li>
           ))}
-        </select>
-      </div>
-      <div>
-        <label className="block text-sm font-medium mb-2">Pickup Address</label>
-        <input
-          type="text"
-          value={formData.pickupAddress}
-          onChange={(e) => setFormData({ ...formData, pickupAddress: e.target.value })}
-          className="input"
-          required
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium mb-2">Dropoff Address</label>
-        <input
-          type="text"
-          value={formData.dropoffAddress}
-          onChange={(e) => setFormData({ ...formData, dropoffAddress: e.target.value })}
-          className="input"
-          required
-        />
-      </div>
-      <div>
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={formData.isPreBooked}
-            onChange={(e) => setFormData({ ...formData, isPreBooked: e.target.checked })}
-          />
-          <span>Pre-book this ride</span>
-        </label>
-      </div>
-      {formData.isPreBooked && (
-        <div>
-          <label className="block text-sm font-medium mb-2">Scheduled Time</label>
-          <input
-            type="datetime-local"
-            value={formData.scheduledTime}
-            onChange={(e) => setFormData({ ...formData, scheduledTime: e.target.value })}
-            className="input"
-            required={formData.isPreBooked}
-          />
-        </div>
+        </ul>
       )}
-      <div>
-        <label className="block text-sm font-medium mb-2">Payment Method</label>
-        <select
-          value={formData.paymentMethod}
-          onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
-          className="input"
-        >
-          <option value="cash">Cash</option>
-          <option value="apple_pay">Apple Pay</option>
-        </select>
-      </div>
-      <button type="submit" className="btn btn-primary w-full" disabled={loading}>
-        {loading ? 'Creating...' : 'Book Ride'}
-      </button>
-    </form>
-  )
-}
-
-// User Profile Component
-function UserProfile({ user, onUpdate }: { user: any; onUpdate: () => void }) {
-  const [formData, setFormData] = useState({
-    firstName: user?.firstName || '',
-    lastName: user?.lastName || '',
-    phone: user?.phone || '',
-  })
-  const [loading, setLoading] = useState(false)
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-
-    try {
-      await api.put('/user/profile', formData)
-      toast.success('Profile updated!')
-      onUpdate()
-    } catch (error) {
-      toast.error('Failed to update profile')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium mb-2">Email</label>
-        <input type="email" value={user?.email} className="input" disabled />
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium mb-2">First Name</label>
-          <input
-            type="text"
-            value={formData.firstName}
-            onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-            className="input"
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-2">Last Name</label>
-          <input
-            type="text"
-            value={formData.lastName}
-            onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-            className="input"
-            required
-          />
-        </div>
-      </div>
-      <div>
-        <label className="block text-sm font-medium mb-2">Phone</label>
-        <input
-          type="tel"
-          value={formData.phone}
-          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-          className="input"
-          required
-        />
-      </div>
-      <button type="submit" className="btn btn-primary" disabled={loading}>
-        {loading ? 'Updating...' : 'Update Profile'}
-      </button>
-    </form>
-  )
-}
-
-// Wallet Section Component
-function WalletSection({ balance, onUpdate }: { balance: number; onUpdate: () => void }) {
-  const [amount, setAmount] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  const handleAddFunds = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-
-    try {
-      await api.post('/user/wallet', { amount: parseFloat(amount) })
-      toast.success('Funds added!')
-      setAmount('')
-      onUpdate()
-    } catch (error) {
-      toast.error('Failed to add funds')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="p-6 bg-primary text-white rounded-lg">
-        <p className="text-sm">Current Balance</p>
-        <p className="text-3xl font-bold">${balance.toFixed(2)}</p>
-      </div>
-      <form onSubmit={handleAddFunds} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium mb-2">Add Funds (Apple Pay)</label>
-          <input
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="input"
-            placeholder="Enter amount"
-            min="1"
-            step="0.01"
-            required
-          />
-        </div>
-        <button type="submit" className="btn btn-primary" disabled={loading}>
-          {loading ? 'Processing...' : 'Add Funds'}
-        </button>
-      </form>
     </div>
   )
 }
-
-// Trip History Component
-function TripHistory({ rides }: { rides: any[] }) {
-  if (rides.length === 0) {
-    return <p className="text-secondary">No trip history yet.</p>
-  }
-
-  return (
-    <div className="space-y-4">
-      {rides.map((ride) => (
-        <div key={ride.id} className="p-4 border rounded-lg">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="font-medium">
-                {ride.pickupAddress} → {ride.dropoffAddress}
-              </p>
-              <p className="text-sm text-secondary">
-                Driver: {ride.driver?.firstName} {ride.driver?.lastName} ⭐ {ride.driver?.averageRating?.toFixed(1) || 'N/A'}
-              </p>
-              <p className="text-sm text-secondary">
-                Cost: ${ride.costPerPassenger.toFixed(2)} | Status: {ride.status}
-              </p>
-            </div>
-            {ride.status === 'completed' && ride.ratings.length === 0 && (
-              <RateRideButton rideId={ride.id} />
-            )}
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// Rate Ride Button Component
-function RateRideButton({ rideId }: { rideId: string }) {
-  const [showModal, setShowModal] = useState(false)
-  const [ratings, setRatings] = useState({ rideRating: 5, driverRating: 5, comment: '' })
-  const [loading, setLoading] = useState(false)
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-
-    try {
-      await api.post('/rides/rate', { rideId, ...ratings })
-      toast.success('Rating submitted!')
-      setShowModal(false)
-      window.location.reload()
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to submit rating')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <>
-      <button onClick={() => setShowModal(true)} className="btn btn-outline">
-        Rate Ride
-      </button>
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full">
-            <h3 className="text-xl font-bold mb-4">Rate Your Ride</h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Ride Rating (1-5)</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="5"
-                  value={ratings.rideRating}
-                  onChange={(e) => setRatings({ ...ratings, rideRating: parseInt(e.target.value) })}
-                  className="input"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Driver Rating (1-5)</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="5"
-                  value={ratings.driverRating}
-                  onChange={(e) => setRatings({ ...ratings, driverRating: parseInt(e.target.value) })}
-                  className="input"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Comment (optional)</label>
-                <textarea
-                  value={ratings.comment}
-                  onChange={(e) => setRatings({ ...ratings, comment: e.target.value })}
-                  className="input"
-                  rows={3}
-                />
-              </div>
-              <div className="flex gap-2">
-                <button type="submit" className="btn btn-primary flex-1" disabled={loading}>
-                  {loading ? 'Submitting...' : 'Submit'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="btn btn-outline"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </>
-  )
-}
-
