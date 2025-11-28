@@ -1,109 +1,94 @@
-// Rate ride and driver API
-// User can rate the ride and driver after trip completion
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { verifyToken } from '@/lib/auth'
+import { NextRequest, NextResponse } from "next/server";
+import { verifyToken } from "@/lib/auth";
+import { prisma } from '@/lib/prisma';
+import { RideStatus, UserRole, Rating } from "@prisma/client";
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '')
+    const token = req.headers.get('authorization')?.replace('Bearer ', '');
     if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const user = await verifyToken(token);
+    if (!user) {
+        return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    const payload = verifyToken(token)
-    if (!payload || payload.role !== 'user') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { rideId, rating, comment } = await req.json();
+
+    if (!rideId || !rating) {
+      return NextResponse.json({ error: 'Ride ID and rating are required' }, { status: 400 });
     }
 
-    const body = await request.json()
-    const { rideId, rideRating, driverRating, comment } = body
-
-    if (!rideId || !rideRating || !driverRating) {
-      return NextResponse.json(
-        { error: 'Ride ID, ride rating, and driver rating are required' },
-        { status: 400 }
-      )
+    if (rating < 1 || rating > 5) {
+      return NextResponse.json({ error: 'Rating must be between 1 and 5' }, { status: 400 });
     }
 
-    // Validate ratings (1-5)
-    if (rideRating < 1 || rideRating > 5 || driverRating < 1 || driverRating > 5) {
-      return NextResponse.json(
-        { error: 'Ratings must be between 1 and 5' },
-        { status: 400 }
-      )
-    }
-
-    // Get ride
     const ride = await prisma.ride.findUnique({
       where: { id: rideId },
-      include: { driver: true },
-    })
+    });
 
     if (!ride) {
-      return NextResponse.json({ error: 'Ride not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Ride not found' }, { status: 404 });
     }
 
-    if (ride.passengerId !== payload.userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    // Check if the user was part of the ride (either as user or driver)
+    if (ride.userId !== user.id && ride.driverId !== user.id) {
+      return NextResponse.json({ error: 'You can only rate rides you were part of' }, { status: 403 });
     }
 
-    if (ride.status !== 'completed') {
-      return NextResponse.json(
-        { error: 'Can only rate completed rides' },
-        { status: 400 }
-      )
+    // Check if the ride is completed
+    if (ride.status !== RideStatus.COMPLETED) {
+      return NextResponse.json({ error: 'You can only rate completed rides' }, { status: 400 });
     }
 
-    // Check if already rated
-    const existingRating = await prisma.rating.findFirst({
-      where: {
-        rideId,
-        userId: payload.userId,
-      },
-    })
+    // Determine who is being rated
+    let ratedUserId: string;
+    let ratedUserRole: UserRole;
 
-    if (existingRating) {
-      return NextResponse.json(
-        { error: 'Ride already rated' },
-        { status: 400 }
-      )
+    if (user.role === UserRole.USER) {
+      // User is rating the driver
+      if (!ride.driverId) {
+        return NextResponse.json({ error: 'No driver assigned to this ride to rate' }, { status: 400 });
+      }
+      ratedUserId = ride.driverId;
+      ratedUserRole = UserRole.DRIVER;
+    } else if (user.role === UserRole.DRIVER) {
+      // Driver is rating the user
+      ratedUserId = ride.userId;
+      ratedUserRole = UserRole.USER;
+    } else {
+      return NextResponse.json({ error: 'Admins cannot rate rides' }, { status: 403 });
     }
 
-    // Create rating
-    await prisma.rating.create({
+    const newRating = await prisma.rating.create({
       data: {
         rideId,
-        userId: payload.userId,
-        driverId: ride.driverId,
-        rideRating,
-        driverRating,
-        comment: comment || null,
+        ratedById: user.id,
+        ratedUserId,
+        rating,
+        comment,
       },
-    })
+    });
 
-    // Update driver average rating
+    // Optionally, update the average rating for the rated user
+    // This could be done in a separate, asynchronous job for performance
     const allRatings = await prisma.rating.findMany({
-      where: { driverId: ride.driverId },
-    })
+      where: { ratedUserId },
+    });
 
-    const averageRating =
-      allRatings.reduce((sum, r) => sum + r.driverRating, 0) / allRatings.length
+    const avgRating = allRatings.length > 0
+        ? allRatings.reduce((acc: number, r: Rating) => acc + r.rating, 0) / allRatings.length
+        : 0;
 
-    await prisma.driver.update({
-      where: { id: ride.driverId },
-      data: {
-        averageRating,
-        totalRatings: allRatings.length,
-      },
-    })
+    await prisma.user.update({
+      where: { id: ratedUserId },
+      data: { averageRating: avgRating },
+    });
 
-    return NextResponse.json({
-      message: 'Rating submitted successfully',
-    })
+    return NextResponse.json(newRating);
   } catch (error) {
-    console.error('Rate ride error:', error)
-    return NextResponse.json({ error: 'Failed to submit rating' }, { status: 500 })
+    console.error('Error rating ride:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
-

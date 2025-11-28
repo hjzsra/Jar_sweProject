@@ -7,12 +7,154 @@ import AuthGuard from '@/components/AuthGuard'
 import api from '@/lib/api'
 import toast from 'react-hot-toast'
 
+// Ride Request Card Component
+function RideRequestCard({ request, onUpdate }: { request: any; onUpdate: () => void }) {
+  const [loading, setLoading] = useState(false)
+
+  const handleAccept = async () => {
+    setLoading(true)
+    try {
+      await api.post('/rides/accept', { rideRequestId: request.id })
+      toast.success('Ride accepted!')
+      onUpdate()
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to accept ride')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleReject = async () => {
+    const reason = prompt('Reason for rejection (optional):')
+    setLoading(true)
+    try {
+      await api.post('/rides/driver/reject', { rideId: request.id, reason })
+      toast.success('Ride rejected')
+      onUpdate()
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to reject ride')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="p-4 border rounded-lg">
+      <div className="flex justify-between items-start">
+        <div>
+          <p className="font-medium">
+            {request.pickupLat}, {request.pickupLng} → {request.dropoffLat}, {request.dropoffLng}
+          </p>
+          <p className="text-sm text-secondary">
+            Passenger: {request.user?.firstName} {request.user?.lastName}
+          </p>
+          <p className="text-sm text-secondary">
+            Estimated Cost: ${request.estimatedCost?.toFixed(2)}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={handleAccept}
+            className="btn btn-primary"
+            disabled={loading}
+          >
+            Accept
+          </button>
+          <button
+            onClick={handleReject}
+            className="btn btn-outline"
+            disabled={loading}
+          >
+            Reject
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Active Ride Card Component
+function ActiveRideCard({ ride, onUpdate }: { ride: any; onUpdate: () => void }) {
+  const [loading, setLoading] = useState(false)
+
+  const handleStartRide = async () => {
+    setLoading(true)
+    try {
+      await api.post('/rides/start', { rideId: ride.id })
+      toast.success('Ride started!')
+      onUpdate()
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to start ride')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleEndRide = async () => {
+    setLoading(true)
+    try {
+      await api.post('/rides/end', { rideId: ride.id })
+      toast.success('Ride completed!')
+      onUpdate()
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to end ride')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="p-4 border rounded-lg">
+      <div>
+        <p className="font-medium">
+          Current Ride ({ride.passengers? 1:0} / {ride.car.type === 'SUV' ? 5 : 3} passengers)
+        </p>
+        <p className="text-sm text-secondary">Status: {ride.status}</p>
+        <div className="mt-2">
+          <h4 className="font-bold">Passengers:</h4>
+          <ul className="list-disc list-inside">
+            {ride.passengers.map((p: any) => (
+              <li key={p.id} className="text-sm">{p.user.firstName} {p.user.lastName}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+      <div className="mt-4 flex gap-2">
+        {ride.status === 'PENDING' && (
+          <button
+            onClick={handleStartRide}
+            className="btn btn-primary"
+            disabled={loading}
+          >
+            Start Ride
+          </button>
+        )}
+        {ride.status === 'IN_PROGRESS' && (
+          <button
+            onClick={handleEndRide}
+            className="btn btn-primary"
+            disabled={loading}
+          >
+            End Trip
+          </button>
+        )}
+        <button
+          onClick={() => window.open(`/driver/chat?rideId=${ride.id}`, '_blank')}
+          className="btn btn-outline"
+        >
+          Chat with Passengers
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function DriverDashboard() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<'home' | 'requests' | 'active' | 'history'>('home')
   const [driver, setDriver] = useState<any>(null)
   const [rideRequests, setRideRequests] = useState<any[]>([])
-  const [activeRides, setActiveRides] = useState<any[]>([])
+  const [activeRide, setActiveRide] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [isAvailable, setIsAvailable] = useState(false)
 
@@ -28,9 +170,9 @@ export default function DriverDashboard() {
       loadRideRequests()
     }
     if (activeTab === 'active') {
-      loadActiveRides()
+      loadActiveRide()
     }
-  }, [activeTab])
+  }, [activeTab, isAvailable])
 
   const loadDriverData = async () => {
     try {
@@ -89,17 +231,25 @@ export default function DriverDashboard() {
   }
 
   const loadRideRequests = async () => {
+    if (!isAvailable) {
+      setRideRequests([]);
+      return;
+    }
     try {
-      const response = await api.get('/driver/requests?radius=5')
-      setRideRequests(response.data.requests)
+      const response = await api.get('/driver/requests')
+      setRideRequests(response.data)
     } catch (error) {
       toast.error('Failed to load ride requests')
     }
   }
 
-  const loadActiveRides = async () => {
-    // In production, fetch active rides from API
-    setActiveRides([])
+  const loadActiveRide = async () => {
+    try {
+      const response = await api.get('/rides/driver')
+      setActiveRide(response.data)
+    } catch (error) {
+      toast.error('Failed to load active ride')
+    }
   }
 
   const handleLogout = () => {
@@ -111,7 +261,7 @@ export default function DriverDashboard() {
 
   if (loading) {
     return (
-      <AuthGuard requiredRole="driver">
+      <AuthGuard requiredRole="DRIVER">
         <div className="min-h-screen bg-background flex items-center justify-center">
           <div className="text-secondary">Loading...</div>
         </div>
@@ -120,7 +270,7 @@ export default function DriverDashboard() {
   }
 
   return (
-    <AuthGuard requiredRole="driver">
+    <AuthGuard requiredRole="DRIVER">
       <div className="min-h-screen bg-background">
         <nav className="bg-white shadow-sm p-4">
           <div className="max-w-7xl mx-auto flex justify-between items-center">
@@ -160,7 +310,7 @@ export default function DriverDashboard() {
             <button
               onClick={() => {
                 setActiveTab('active')
-                loadActiveRides()
+                loadActiveRide()
               }}
               className={`btn ${activeTab === 'active' ? 'btn-primary' : 'btn-outline'}`}
             >
@@ -180,7 +330,7 @@ export default function DriverDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="p-4 bg-primary text-white rounded-lg">
                   <p className="text-sm">Average Rating</p>
-                  <p className="text-2xl font-bold">{driver?.averageRating?.toFixed(1) || '0.0'}</p>
+                  <p className="text-2xl font-bold">{driver?.rating?.toFixed(1) || '0.0'}</p>
                 </div>
                 <div className="p-4 bg-accent text-white rounded-lg">
                   <p className="text-sm">Total Rides</p>
@@ -220,15 +370,11 @@ export default function DriverDashboard() {
 
           {activeTab === 'active' && (
             <div className="card">
-              <h2 className="text-2xl font-bold mb-4">Active Rides</h2>
-              {activeRides.length === 0 ? (
-                <p className="text-secondary">No active rides</p>
+              <h2 className="text-2xl font-bold mb-4">Active Ride</h2>
+              {activeRide ? (
+                <ActiveRideCard ride={activeRide} onUpdate={loadActiveRide} />
               ) : (
-                <div className="space-y-4">
-                  {activeRides.map((ride) => (
-                    <ActiveRideCard key={ride.id} ride={ride} />
-                  ))}
-                </div>
+                <p className="text-secondary">No active rides</p>
               )}
             </div>
           )}
@@ -244,139 +390,3 @@ export default function DriverDashboard() {
     </AuthGuard>
   )
 }
-
-// Ride Request Card Component
-function RideRequestCard({ request, onUpdate }: { request: any; onUpdate: () => void }) {
-  const [loading, setLoading] = useState(false)
-
-  const handleAccept = async () => {
-    setLoading(true)
-    try {
-      await api.post('/rides/driver/accept', { rideId: request.id })
-      toast.success('Ride accepted!')
-      onUpdate()
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to accept ride')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleReject = async () => {
-    const reason = prompt('Reason for rejection (optional):')
-    setLoading(true)
-    try {
-      await api.post('/rides/driver/reject', { rideId: request.id, reason })
-      toast.success('Ride rejected')
-      onUpdate()
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to reject ride')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="p-4 border rounded-lg">
-      <div className="flex justify-between items-start">
-        <div>
-          <p className="font-medium">
-            {request.pickupAddress} → {request.dropoffAddress}
-          </p>
-          <p className="text-sm text-secondary">
-            Passenger: {request.passenger?.firstName} {request.passenger?.lastName}
-          </p>
-          <p className="text-sm text-secondary">
-            Distance: {request.distance?.toFixed(2)} km | Cost: ${request.cost?.toFixed(2)}
-          </p>
-          {request.isPreBooked && request.scheduledTime && (
-            <p className="text-sm text-secondary">
-              Scheduled: {new Date(request.scheduledTime).toLocaleString()}
-            </p>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={handleAccept}
-            className="btn btn-primary"
-            disabled={loading}
-          >
-            Accept
-          </button>
-          <button
-            onClick={handleReject}
-            className="btn btn-outline"
-            disabled={loading}
-          >
-            Reject
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Active Ride Card Component
-function ActiveRideCard({ ride }: { ride: any }) {
-  const [loading, setLoading] = useState(false)
-
-  const handleAction = async (action: string) => {
-    setLoading(true)
-    try {
-      await api.post(`/rides/driver/${action}`, { rideId: ride.id })
-      toast.success(`Ride ${action}ed`)
-      window.location.reload()
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || `Failed to ${action} ride`)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="p-4 border rounded-lg">
-      <div>
-        <p className="font-medium">
-          {ride.pickupAddress} → {ride.dropoffAddress}
-        </p>
-        <p className="text-sm text-secondary">Status: {ride.status}</p>
-      </div>
-      <div className="mt-4 flex gap-2">
-        {ride.status === 'accepted' && (
-          <button
-            onClick={() => handleAction('arrived')}
-            className="btn btn-primary"
-            disabled={loading}
-          >
-            I've Arrived
-          </button>
-        )}
-        {ride.status === 'driver_arrived' && (
-          <button
-            onClick={() => handleAction('start')}
-            className="btn btn-primary"
-            disabled={loading}
-          >
-            Start Trip
-          </button>
-        )}
-        {ride.status === 'in_progress' && (
-          <button
-            onClick={() => handleAction('end')}
-            className="btn btn-primary"
-            disabled={loading}
-          >
-            End Trip
-          </button>
-        )}
-        <button
-          onClick={() => window.open(`/driver/chat?rideId=${ride.id}`, '_blank')}
-          className="btn btn-outline"
-        >
-          Chat
-        </button>
-      </div>
-    </div>
-  )
-}
-

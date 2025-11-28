@@ -1,13 +1,14 @@
 // Authentication utilities
 // Handles JWT token generation and verification
 import jwt from 'jsonwebtoken'
+import { UserRole } from '@prisma/client';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this'
 
 export interface TokenPayload {
   userId: string
-  email: string
-  role: 'user' | 'driver' | 'admin'
+  email: string | null
+  role: UserRole
 }
 
 // Generate JWT token for user/driver/admin

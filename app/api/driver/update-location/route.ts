@@ -29,8 +29,8 @@ export async function POST(request: NextRequest) {
     const driver = await prisma.driver.update({
       where: { id: payload.userId },
       data: {
-        currentLatitude: latitude,
-        currentLongitude: longitude,
+        currentLat: latitude,
+        currentLng: longitude,
         ...(isAvailable !== undefined && { isAvailable }),
       },
     })
@@ -39,8 +39,8 @@ export async function POST(request: NextRequest) {
       message: 'Location updated',
       driver: {
         id: driver.id,
-        currentLatitude: driver.currentLatitude,
-        currentLongitude: driver.currentLongitude,
+        currentLatitude: driver.currentLat,
+        currentLongitude: driver.currentLng,
         isAvailable: driver.isAvailable,
       },
     })

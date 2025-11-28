@@ -21,7 +21,7 @@ export default function AdminLogin() {
     try {
       const response = await api.post('/auth/admin/login', formData)
       localStorage.setItem('token', response.data.token)
-      localStorage.setItem('role', 'admin')
+      localStorage.setItem('role', 'ADMIN')
       localStorage.setItem('admin', JSON.stringify(response.data.admin))
       toast.success('Login successful')
       router.push('/admin/dashboard')

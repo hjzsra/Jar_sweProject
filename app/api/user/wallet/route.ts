@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyToken } from '@/lib/auth'
+import { UserRole } from '@prisma/client'
 
 // Get wallet balance
 export async function GET(request: NextRequest) {
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
     }
 
     const payload = verifyToken(token)
-    if (!payload || payload.role !== 'user') {
+    if (!payload || payload.role !== UserRole.USER) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -42,16 +43,16 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = verifyToken(token)
-    if (!payload || payload.role !== 'user') {
+    if (!payload || payload.role !== UserRole.USER) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const body = await request.json()
     const { amount } = body
 
-    if (!amount || amount <= 0) {
+    if (!amount) {
       return NextResponse.json(
-        { error: 'Valid amount is required' },
+        { error: 'Amount is required' },
         { status: 400 }
       )
     }
@@ -65,7 +66,6 @@ export async function POST(request: NextRequest) {
           increment: amount,
         },
       },
-      select: { walletBalance: true },
     })
 
     return NextResponse.json({
@@ -77,4 +77,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to add funds' }, { status: 500 })
   }
 }
-

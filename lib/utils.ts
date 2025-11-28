@@ -25,13 +25,14 @@ function toRad(degrees: number): number {
 
 // Validate university email format
 export function isValidUniversityEmail(email: string): boolean {
-  // Simple validation - check for common university email patterns
-  const allowedDomainPattern = /^[a-zA-Z0-9._%+-]+@sm\.imamu\.edu\.sa$/i
-  return allowedDomainPattern.test(email)
+  // Accept both university emails and Gmail addresses
+  const universityPattern = /^[a-zA-Z0-9._%+-]+@sm\.imamu\.edu\.sa$/i
+  const gmailPattern = /^[a-zA-Z0-9._%+-]+@gmail\.com$/i
+  
+  return universityPattern.test(email) || gmailPattern.test(email)
 }
 
 // Format currency
 export function formatCurrency(amount: number): string {
   return `$${amount.toFixed(2)}`
 }
-

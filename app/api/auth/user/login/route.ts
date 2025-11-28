@@ -2,6 +2,7 @@
 // Authenticates user with university email and password
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { UserRole } from '@prisma/client'
 import { generateToken } from '@/lib/auth'
 import bcrypt from 'bcryptjs'
 
@@ -32,7 +33,10 @@ export async function POST(request: NextRequest) {
     // Check if email is verified
     if (!user.emailVerified) {
       return NextResponse.json(
-        { error: 'Please verify your email first' },
+        {
+          error: 'Please verify your email first',
+          errorCode: 'EMAIL_NOT_VERIFIED',
+        },
         { status: 401 }
       )
     }
@@ -50,7 +54,7 @@ export async function POST(request: NextRequest) {
     const token = generateToken({
       userId: user.id,
       email: user.email,
-      role: 'user',
+      role: user.role,
     })
 
     return NextResponse.json({
@@ -71,4 +75,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

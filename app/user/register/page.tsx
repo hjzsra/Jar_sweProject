@@ -33,7 +33,7 @@ export default function UserRegister() {
     }
 
     try {
-      const response = await api.post('/auth/user/register', {
+      const response = await api.post('/api/auth/user/register', {
         email: formData.email,
         password: formData.password,
         firstName: formData.firstName,
@@ -46,7 +46,12 @@ export default function UserRegister() {
       toast.success(response.data.message)
       setStep('verify')
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Registration failed')
+      if (error.response?.data?.errorCode === 'EMAIL_NOT_VERIFIED') {
+        toast.error(error.response.data.message)
+        router.push(`/user/verify-email?email=${formData.email}`)
+      } else {
+        toast.error(error.response?.data?.error || 'Registration failed')
+      }
     } finally {
       setLoading(false)
     }
@@ -57,7 +62,7 @@ export default function UserRegister() {
     setLoading(true)
 
     try {
-      const response = await api.post('/auth/user/verify-otp', {
+      const response = await api.post('/api/auth/user/verify-otp', {
         email: formData.email,
         otpCode: otp,
       })
@@ -92,9 +97,26 @@ export default function UserRegister() {
                 required
               />
             </div>
-            <button type="submit" className="btn btn-primary w-full" disabled={loading}>
-              {loading ? 'Verifying...' : 'Verify'}
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                className="btn btn-primary flex-1"
+                disabled={loading}
+              >
+                {loading ? 'Verifying...' : 'Verify'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() =>
+                  router.push(
+                    `/user/verify?email=${encodeURIComponent(formData.email)}`
+                  )
+                }
+              >
+                Enter code later
+              </button>
+            </div>
           </form>
         </div>
       </div>
@@ -113,7 +135,7 @@ export default function UserRegister() {
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               className="input"
-              placeholder="student@university.edu"
+              placeholder="student@gmail.com"
               required
             />
           </div>
@@ -208,4 +230,3 @@ export default function UserRegister() {
     </div>
   )
 }
-

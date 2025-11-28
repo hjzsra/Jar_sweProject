@@ -26,7 +26,7 @@ export default function DriverLogin() {
         password: formData.password,
       })
       localStorage.setItem('token', response.data.token)
-      localStorage.setItem('role', 'driver')
+      localStorage.setItem('role', 'DRIVER')
       localStorage.setItem('driver', JSON.stringify(response.data.driver))
       toast.success('Login successful')
       router.push('/driver/dashboard')

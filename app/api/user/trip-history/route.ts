@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyToken } from '@/lib/auth'
+import { UserRole } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
     }
 
     const payload = verifyToken(token)
-    if (!payload || payload.role !== 'user') {
+    if (!payload || payload.role !== UserRole.USER) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -31,16 +32,38 @@ export async function GET(request: NextRequest) {
           },
         },
         ratings: {
-          where: { userId: payload.userId },
+          where: { passengerId: payload.userId },
+          select: {
+            rating: true,
+            comment: true,
+          },
         },
       },
       orderBy: { createdAt: 'desc' },
     })
 
-    return NextResponse.json({ rides })
+    const ridesWithDriverDetails = rides.map(ride => {
+      const driverDetails = {
+        id: ride.driver.id,
+        name: `${ride.driver.firstName} ${ride.driver.lastName}`,
+        car: {
+          model: ride.driver.carModel,
+          color: ride.driver.carColor,
+          plateNumber: ride.driver.carPlateNumber,
+        },
+        rating: ride.driver.averageRating,
+      }
+
+      return {
+        ...ride,
+        driver: driverDetails,
+        rating: ride.ratings.length > 0 ? ride.ratings[0] : null,
+      }
+    })
+
+    return NextResponse.json({ rides: ridesWithDriverDetails })
   } catch (error) {
     console.error('Get trip history error:', error)
     return NextResponse.json({ error: 'Failed to get trip history' }, { status: 500 })
   }
 }
-

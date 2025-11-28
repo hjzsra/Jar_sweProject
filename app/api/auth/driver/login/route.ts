@@ -2,6 +2,7 @@
 // Authenticates driver with email/phone and password
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { UserRole } from '@prisma/client'
 import { generateToken } from '@/lib/auth'
 import bcrypt from 'bcryptjs'
 
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
     const token = generateToken({
       userId: driver.id,
       email: driver.email || driver.phone || '',
-      role: 'driver',
+      role: UserRole.DRIVER,
     })
 
     return NextResponse.json({

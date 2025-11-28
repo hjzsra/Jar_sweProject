@@ -34,7 +34,7 @@ export default function DriverChat() {
 
   const loadMessages = async () => {
     try {
-      const response = await api.get(`/chat/messages?rideId=${rideId}`)
+      const response = await api.get(`/api/chat/messages?rideId=${rideId}`)
       setMessages(response.data.messages)
     } catch (error) {
       console.error('Failed to load messages')
@@ -47,7 +47,7 @@ export default function DriverChat() {
 
     setLoading(true)
     try {
-      await api.post('/chat/messages', {
+      await api.post('/api/chat/messages', {
         rideId,
         message: newMessage,
       })
@@ -62,7 +62,7 @@ export default function DriverChat() {
 
   if (!rideId) {
     return (
-      <AuthGuard requiredRole="driver">
+      <AuthGuard requiredRole="DRIVER">
         <div className="min-h-screen bg-background flex items-center justify-center">
           <div className="text-secondary">No ride ID provided</div>
         </div>
@@ -71,7 +71,7 @@ export default function DriverChat() {
   }
 
   return (
-    <AuthGuard requiredRole="driver">
+    <AuthGuard requiredRole="DRIVER">
       <div className="min-h-screen bg-background flex flex-col">
         <div className="bg-white shadow-sm p-4">
           <h2 className="text-xl font-bold text-primary">Chat with Riders</h2>

@@ -1,0 +1,131 @@
+// ... existing code ...
+enum UserRole {
+  USER
+  DRIVER
+  ADMIN
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum RideStatus {
+  PENDING // Ride is waiting for a driver to accept
+  ACCEPTED // A driver has accepted the ride
+  IN_PROGRESS // The driver is en route to pickup or has started the trip
+  COMPLETED // All passengers have been dropped off
+  CANCELLED // The ride was cancelled
+}
+
+enum RidePassengerStatus {
+  AWAITING_PICKUP
+  PICKED_UP
+  DROPPED_OFF
+}
+
+enum PaymentMethod {
+  CASH
+  WALLET
+  CARD
+  APPLE_PAY
+  MOBILE_PAY
+}
+
+model User {
+  id              String          @id @default(cuid())
+  email           String          @unique
+  password        String
+  name            String
+  phone           String          @unique
+  role            UserRole        @default(USER)
+  gender          Gender
+  isVerified      Boolean         @default(false)
+  otp             String?
+  otpExpires      DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  wallet          Wallet?
+  ridesAsPassenger RidePassenger[]
+  sentMessages    ChatMessage[]   @relation("sentMessages")
+  receivedMessages ChatMessage[]   @relation("receivedMessages")
+  ratingsGiven    Rating[]
+}
+
+model Driver {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  password        String
+  name            String
+  phone           String    @unique
+  gender          Gender
+  isAvailable     Boolean   @default(false)
+  currentLatitude Decimal?
+  currentLongitude Decimal?
+  phoneVerified   Boolean   @default(false)
+  otp             String?
+  otpExpires      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  car             Car?
+  ridesAsDriver   Ride[]
+  ratingsReceived Rating[]
+  rideRequests    RideRequest[]
+}
+
+model Car {
+  id          String @id @default(cuid())
+  driverId    String @unique
+  driver      Driver @relation(fields: [driverId], references: [id])
+  plateNumber String
+  color       String
+  model       String
+  capacity    Int // e.g., 3 for sedan, 5 for SUV
+}
+
+model Ride {
+  id               String          @id @default(cuid())
+  driverId         String?
+  driver           Driver?         @relation(fields: [driverId], references: [id])
+  status           RideStatus      @default(PENDING)
+  pickupLatitude   Decimal
+  pickupLongitude  Decimal
+  dropoffLatitude  Decimal
+  dropoffLongitude Decimal
+  pickupAddress    String
+  dropoffAddress   String
+  scheduledTime    DateTime?
+  isPreBooked      Boolean         @default(false)
+  cost             Float
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  passengers       RidePassenger[]
+  requests         RideRequest[]
+}
+
+model RidePassenger {
+  id          String              @id @default(cuid())
+  rideId      String
+  ride        Ride                @relation(fields: [rideId], references: [id])
+  passengerId String
+  passenger   User                @relation(fields: [passengerId], references: [id])
+  status      RidePassengerStatus @default(AWAITING_PICKUP)
+  cost        Float
+
+  @@unique([rideId, passengerId])
+}
+
+model RideRequest {
+  id        String   @id @default(cuid())
+  rideId    String
+  ride      Ride     @relation(fields: [rideId], references: [id])
+  driverId  String
+  driver    Driver   @relation(fields: [driverId], references: [id])
+  status    String   @default("SENT") // SENT, VIEWED, REJECTED
+  createdAt DateTime @default(now())
+
+  @@unique([rideId, driverId])
+}
+
+model Wallet {
+// ... existing code ...

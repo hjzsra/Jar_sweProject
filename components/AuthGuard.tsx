@@ -4,10 +4,11 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { UserRole } from '@prisma/client'
 
 interface AuthGuardProps {
   children: React.ReactNode
-  requiredRole?: 'user' | 'driver' | 'admin'
+  requiredRole?: UserRole
 }
 
 export default function AuthGuard({ children, requiredRole }: AuthGuardProps) {
@@ -47,4 +48,3 @@ export default function AuthGuard({ children, requiredRole }: AuthGuardProps) {
 
   return <>{children}</>
 }
-

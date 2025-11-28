@@ -2,6 +2,7 @@
 // Get all data for admin dashboard
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { PaymentStatus, RideStatus, TicketStatus, UserRole } from '@prisma/client'
 import { verifyToken } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
     }
 
     const payload = verifyToken(token)
-    if (!payload || payload.role !== 'admin') {
+    if (!payload || payload.role.toUpperCase() !== UserRole.ADMIN) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -31,16 +32,16 @@ export async function GET(request: NextRequest) {
       prisma.ride.count({
         where: {
           status: {
-            in: ['pending', 'accepted', 'driver_arrived', 'in_progress'],
+            in: [RideStatus.PENDING, RideStatus.ACCEPTED, RideStatus.DRIVER_ARRIVED, RideStatus.IN_PROGRESS],
           },
         },
       }),
       prisma.ride.aggregate({
-        where: { status: 'completed', paymentStatus: 'completed' },
+        where: { status: RideStatus.COMPLETED, paymentStatus: PaymentStatus.PAID },
         _sum: { cost: true },
       }),
       prisma.supportTicket.count({
-        where: { status: 'open' },
+        where: { status: TicketStatus.OPEN },
       }),
     ])
 

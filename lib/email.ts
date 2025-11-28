@@ -14,6 +14,16 @@ const transporter = nodemailer.createTransport({
   },
 })
 
+// Helper to test SMTP connectivity; useful in logs and manual checks
+export async function verifyTransporter(): Promise<{ ok: boolean; error?: any }> {
+  try {
+    await transporter.verify()
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err }
+  }
+}
+
 // Generate random 6-digit OTP code
 export function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString()
@@ -22,6 +32,13 @@ export function generateOTP(): string {
 // Send OTP code to email
 export async function sendOTP(email: string, otp: string): Promise<boolean> {
   try {
+    // verify connection so we get a clear error early
+    const verify = await verifyTransporter()
+    if (!verify.ok) {
+      console.error('SMTP verify failed:', verify.error)
+      return false
+    }
+
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: email,
