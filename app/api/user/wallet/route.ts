@@ -26,9 +26,8 @@ export async function GET(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
-    // Wallet functionality is not implemented
-  return NextResponse.json({ balance: user.walletBalance })
 
+    return NextResponse.json({ balance: user.walletBalance })
   } catch (error) {
     console.error('Get wallet error:', error)
     return NextResponse.json({ error: 'Failed to get wallet' }, { status: 500 })
@@ -47,27 +46,20 @@ export async function POST(request: NextRequest) {
     if (!payload || payload.role !== UserRole.USER) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    const body = await request.json()
-<<<<<<< HEAD
-    const { amount, paymentMethod } = body
-=======
-    const { amount } = body
->>>>>>> 4225602486f8bb422bde2230e3d2deb1f0140460
 
-    if (!amount || !paymentMethod) {
+    const body = await request.json()
+    const { amount } = body
+
+    if (!amount) {
       return NextResponse.json(
-        { error: 'Amount and payment method are required' },
+        { error: 'Amount is required' },
         { status: 400 }
       )
     }
-<<<<<<< HEAD
-    const updatedUser = await prisma.user.update({
-=======
 
     // In production, integrate with Apple Pay API here
     // For now, just add to wallet
     const user = await prisma.user.update({
->>>>>>> 4225602486f8bb422bde2230e3d2deb1f0140460
       where: { id: payload.userId },
       data: {
         walletBalance: {
@@ -78,12 +70,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       message: 'Funds added successfully',
-      balance: updatedUser.walletBalance,
+      balance: user.walletBalance,
     })
-    
   } catch (error) {
     console.error('Add funds error:', error)
     return NextResponse.json({ error: 'Failed to add funds' }, { status: 500 })
   }
 }
-

@@ -5,10 +5,6 @@ import { prisma } from '@/lib/prisma'
 import { verifyLicense } from '@/lib/mot-api'
 import bcrypt from 'bcryptjs'
 import { isValidUniversityEmail } from '@/lib/utils'
-<<<<<<< HEAD
-import { generateSmsOTP, sendSmsOTP } from '@/lib/sms' // Import SMS OTP functions
-=======
->>>>>>> 4225602486f8bb422bde2230e3d2deb1f0140460
 
 export async function POST(request: NextRequest) {
   try {
@@ -139,4 +135,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

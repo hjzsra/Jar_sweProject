@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import dynamic from 'next/dynamic'
+import DynamicMap from '@/components/DynamicMap'
 import api from '@/lib/api'
 import toast from 'react-hot-toast'
 import AuthGuard from '@/components/AuthGuard'
@@ -16,10 +16,6 @@ import {
   FaHistory,
 } from 'react-icons/fa'
 import { LatLng } from 'leaflet'
-
-const MapComponent = dynamic(() => import('@/components/MapComponent'), {
-  ssr: false,
-})
 
 type Location = {
   lat: number
@@ -144,7 +140,7 @@ export default function UserDashboard() {
     }
     setLoading(true)
     try {
-      const { data } = await api.get('/rides/nearby-drivers', {
+      const { data } = await api.get('/api/rides/nearby-drivers', {
         params: {
           latitude: pickupLocation.lat,
           longitude: pickupLocation.lng,
@@ -169,7 +165,7 @@ export default function UserDashboard() {
     }
     setLoading(true)
     try {
-      const response = await api.post('/rides/create', {
+      const response = await api.post('/api/rides/create', {
         driverId: selectedDriver.id,
         pickupLatitude: pickupLocation.lat,
         pickupLongitude: pickupLocation.lng,
@@ -191,7 +187,7 @@ export default function UserDashboard() {
   const fetchRideHistory = async () => {
     setLoading(true)
     try {
-      const { data } = await api.get('/user/trip-history')
+      const { data } = await api.get('/api/user/trip-history')
       setRideHistory(data)
     } catch (error) {
       toast.error('Failed to fetch ride history')
@@ -214,7 +210,7 @@ export default function UserDashboard() {
   const handleUpdateProfile = async () => {
     setLoading(true);
     try {
-      const { data } = await api.put('/user/profile', profileData);
+      const { data } = await api.put('/api/user/profile', profileData);
       toast.success('Profile updated successfully');
       setUser(data.user);
       localStorage.setItem('user', JSON.stringify(data.user));
@@ -228,7 +224,7 @@ export default function UserDashboard() {
   const handleSendOtp = async () => {
     setLoading(true);
     try {
-      await api.post('/auth/user/send-otp', { phone: profileData.phone });
+      await api.post('/api/auth/user/send-otp', { phone: profileData.phone });
       setOtpSent(true);
       toast.success('OTP sent to your phone');
     } catch (error) {
@@ -241,9 +237,9 @@ export default function UserDashboard() {
   const handleVerifyOtp = async () => {
     setLoading(true);
     try {
-      await api.post('/auth/user/verify-otp', { otp });
+      await api.post('/api/auth/user/verify-otp', { otp });
       toast.success('Phone number verified successfully');
-      const { data } = await api.get('/user/profile');
+      const { data } = await api.get('/api/user/profile');
       setUser(data.user);
       localStorage.setItem('user', JSON.stringify(data.user));
       setOtpSent(false);
@@ -255,15 +251,15 @@ export default function UserDashboard() {
   };
 
   const mapCenter = useMemo((): [number, number] => {
-    if (userLocation) {
-      return userLocation;
-    }
     if (pickupLocation) {
       return [pickupLocation.lat, pickupLocation.lng]
     }
+    if (userLocation) {
+      return userLocation;
+    }
     return [24.7136, 46.6753] // Default to Riyadh
   }, [pickupLocation, userLocation])
-
+  
   const mapMarkers = useMemo(() => {
     const markers = []
     if (pickupLocation) {
@@ -452,19 +448,19 @@ export default function UserDashboard() {
               )}
             </div>
             <div className="lg:w-2/3 h-96 lg:h-auto card">
-              <MapComponent
-                center={mapCenter}
-                markers={mapMarkers}
+              <DynamicMap
+                position={mapCenter}
+                markers={mapMarkers}         
                 onMapClick={handleMapClick}
-              />
-            </div>
-          </div>
+                              />
+        </div>
+                  </div>
         )
     }
   }
 
   return (
-    <AuthGuard requiredRole="user">
+    <AuthGuard requiredRole="USER">
       <div className="min-h-screen bg-background">
         <nav className="bg-white shadow-sm p-4 flex justify-between items-center">
           <h1 className="text-xl font-bold text-primary">Dashboard</h1>

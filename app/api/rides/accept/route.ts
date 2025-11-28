@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: validation.error.errors }, { status: 400 });
     }
 
-    const { rideId } = validation.data;
+    const { rideRequestId } = validation.data;
 
     const driver = await prisma.driver.findUnique({
       where: { id: driverId },
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     }
 
     const ride = await prisma.ride.findUnique({
-      where: { id: rideId },
+      where: { id: rideRequestId },
     });
 
     if (!ride || ride.status !== 'PENDING') {
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
     }
 
     const updatedRide = await prisma.ride.update({
-      where: { id: rideId },
+      where: { id: rideRequestId },
       data: {
         driverId: driverId,
         status: 'ACCEPTED',

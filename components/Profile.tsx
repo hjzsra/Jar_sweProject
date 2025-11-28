@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react';
-import api from '../../lib/api';
+import api from '../lib/api';
 import toast from 'react-hot-toast';
 
 const Profile = ({ user, onUpdate }: { user: any, onUpdate: (user: any) => void }) => {
@@ -20,7 +20,7 @@ const Profile = ({ user, onUpdate }: { user: any, onUpdate: (user: any) => void 
     e.preventDefault();
     setLoading(true);
     try {
-      const response = await api.put('/api/user/profile', formData);
+      const response = await api.put('/user/profile', formData);
       onUpdate(response.data.user);
       localStorage.setItem('user', JSON.stringify(response.data.user));
       toast.success('Profile updated successfully!');

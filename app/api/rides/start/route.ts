@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
-import { verifyToken } from "@/lib/auth";
-import prisma from "@/lib/prisma";
-import { RideStatus, UserRole } from "@prisma/client";
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { prisma } from '@/lib/prisma';
+import { getCurrentUser } from '@/lib/auth';
+
+
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,12 +11,12 @@ export async function POST(req: NextRequest) {
     if (!token) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
+  
     const payload = verifyToken(token);
     if (!payload || payload.role !== UserRole.DRIVER) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
+  
     const { rideId } = await req.json();
 
     if (!rideId) {

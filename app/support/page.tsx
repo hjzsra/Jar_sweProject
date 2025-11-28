@@ -18,7 +18,7 @@ export default function SupportPage() {
     setLoading(true)
 
     try {
-      await api.post('/support/contact', formData)
+      await api.post('/api/support/contact', formData)
       toast.success('Support ticket created! We will get back to you soon.')
       setFormData({ email: '', subject: '', message: '' })
     } catch (error: any) {

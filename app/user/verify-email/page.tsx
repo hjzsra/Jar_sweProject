@@ -36,14 +36,14 @@ export default function VerifyEmailPage() {
     setLoading(true)
 
     try {
-      await api.post('/auth/user/verify-otp', {
+      await api.post('/api/auth/user/verify-otp', {
         email,
         otpCode: otp,
       })
 
       toast.success('Email verified successfully! Redirecting to login...')
       setTimeout(() => {
-        router.push('/user/login')
+        router.push('/api/user/login')
       }, 2000)
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Verification failed')
@@ -61,7 +61,7 @@ export default function VerifyEmailPage() {
     setResendLoading(true)
 
     try {
-      await api.post('/auth/user/resend-otp', { email })
+      await api.post('/api/auth/user/resend-otp', { email })
       toast.success('OTP resent successfully! Check your email.')
       setResendTimer(60) // 60 second cooldown
     } catch (error: any) {

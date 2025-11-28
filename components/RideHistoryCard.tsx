@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import api from '../../lib/api';
+import api from '../lib/api';
 
 const RideHistoryCard = ({ ride, onUpdate }: { ride: any; onUpdate: () => void }) => {
     const [loading, setLoading] = useState(false);
@@ -12,7 +12,7 @@ const RideHistoryCard = ({ ride, onUpdate }: { ride: any; onUpdate: () => void }
     const handlePayment = async (paymentMethod: string) => {
         setLoading(true);
         try {
-        await api.post('/api/rides/pay', { rideId: ride.id, paymentMethod });
+        await api.post('/rides/pay', { rideId: ride.id, paymentMethod });
         toast.success('Payment successful!');
         onUpdate();
         } catch (error: any) {
@@ -29,7 +29,7 @@ const RideHistoryCard = ({ ride, onUpdate }: { ride: any; onUpdate: () => void }
         }
         setLoading(true);
         try {
-        await api.post('/api/rides/rate', { rideId: ride.id, rating, comment });
+        await api.post('/rides/rate', { rideId: ride.id, rating, comment });
         toast.success('Thanks for your feedback!');
         onUpdate();
         } catch (error: any) {

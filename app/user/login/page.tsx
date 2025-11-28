@@ -21,7 +21,7 @@ export default function UserLogin() {
     try {
       const response = await api.post('/auth/user/login', formData)
       localStorage.setItem('token', response.data.token)
-      localStorage.setItem('role', 'user')
+      localStorage.setItem('role', 'USER')
       localStorage.setItem('user', JSON.stringify(response.data.user))
       toast.success('Login successful')
       router.push('/user/dashboard')

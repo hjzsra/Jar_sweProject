@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import api from '../../lib/api';
+import api from '../lib/api';
 
 const BookRide = ({ userLocation, onRideBooked }: { userLocation: any, onRideBooked: (data: any) => void }) => {
     const [pickup, setPickup] = useState<any>(null);

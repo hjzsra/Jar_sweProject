@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import AuthGuard from '../../components/AuthGuard'
+import AuthGuard from '../../../components/AuthGuard'
 import api from '@/lib/api'
 import toast from 'react-hot-toast'
 
@@ -38,25 +38,28 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <AuthGuard requiredRole="admin">
+      <AuthGuard requiredRole="ADMIN">
         <div className="min-h-screen bg-background flex items-center justify-center">
           <div className="text-secondary">Loading...</div>
         </div>
       </AuthGuard>
-    )
+    );
   }
 
   return (
-    <AuthGuard requiredRole="admin">
-      <div className="min-h-screen bg-background">
-        <nav className="bg-white shadow-sm p-4">
-          <div className="max-w-7xl mx-auto flex justify-between items-center">
-            <h1 className="text-xl font-bold text-primary">Admin Dashboard</h1>
-            <button onClick={handleLogout} className="btn btn-outline">
+    <AuthGuard requiredRole="ADMIN">
+      <div className="min-h-screen bg-background text-text">
+        <header className="bg-surface shadow-md">
+          <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+            <h1 className="text-3xl font-bold text-primary">Admin Dashboard</h1>
+            <button
+              onClick={handleLogout}
+              className="bg-secondary hover:bg-secondary-dark text-white font-bold py-2 px-4 rounded"
+            >
               Logout
             </button>
           </div>
-        </nav>
+        </header>
 
         <div className="max-w-7xl mx-auto p-4">
           <h2 className="text-2xl font-bold mb-6">Overview</h2>
@@ -113,19 +116,9 @@ export default function AdminDashboard() {
                       <tr key={ride.id} className="border-b">
                         <td className="p-2 text-sm">{ride.id.substring(0, 8)}...</td>
                         <td className="p-2">
-                          {ride.driver?.firstName} {ride.driver?.lastName}
-                        </td>
-                        <td className="p-2">
-                          {ride.passenger?.firstName} {ride.passenger?.lastName}
-                        </td>
-                        <td className="p-2 text-sm">
-                          {ride.pickupAddress.substring(0, 20)}... → {ride.dropoffAddress.substring(0, 20)}...
-                        </td>
-                        <td className="p-2">${ride.cost.toFixed(2)}</td>
-                        <td className="p-2">
                           <span className={`px-2 py-1 rounded text-xs ${
-                            ride.status === 'completed' ? 'bg-green-100 text-green-800' :
-                            ride.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                            ride.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
+                            ride.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
                             'bg-gray-100 text-gray-800'
                           }`}>
                             {ride.status}
@@ -146,4 +139,3 @@ export default function AdminDashboard() {
     </AuthGuard>
   )
 }
-

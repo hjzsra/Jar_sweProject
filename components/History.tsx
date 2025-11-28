@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import api from '../../lib/api';
+import api from '../lib/api';
 import RideHistoryCard from './RideHistoryCard';
 
 const History = () => {
@@ -12,7 +12,7 @@ const History = () => {
     const loadHistory = async () => {
         setLoading(true);
         try {
-        const response = await api.get('/api/user/trip-history');
+        const response = await api.get('/user/trip-history');
         setRides(response.data.rides);
         } catch (error) {
         toast.error('Failed to load ride history');

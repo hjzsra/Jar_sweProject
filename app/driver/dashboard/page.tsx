@@ -14,7 +14,7 @@ function RideRequestCard({ request, onUpdate }: { request: any; onUpdate: () => 
   const handleAccept = async () => {
     setLoading(true)
     try {
-      await api.post('/api/rides/accept', { rideRequestId: request.id })
+      await api.post('/rides/accept', { rideRequestId: request.id })
       toast.success('Ride accepted!')
       onUpdate()
     } catch (error: any) {
@@ -80,7 +80,7 @@ function ActiveRideCard({ ride, onUpdate }: { ride: any; onUpdate: () => void })
   const handleStartRide = async () => {
     setLoading(true)
     try {
-      await api.post('/api/rides/start', { rideId: ride.id })
+      await api.post('/rides/start', { rideId: ride.id })
       toast.success('Ride started!')
       onUpdate()
     } catch (error: any) {
@@ -93,7 +93,7 @@ function ActiveRideCard({ ride, onUpdate }: { ride: any; onUpdate: () => void })
   const handleEndRide = async () => {
     setLoading(true)
     try {
-      await api.post('/api/rides/end', { rideId: ride.id })
+      await api.post('/rides/end', { rideId: ride.id })
       toast.success('Ride completed!')
       onUpdate()
     } catch (error: any) {
@@ -107,7 +107,7 @@ function ActiveRideCard({ ride, onUpdate }: { ride: any; onUpdate: () => void })
     <div className="p-4 border rounded-lg">
       <div>
         <p className="font-medium">
-          Current Ride ({ride.passengers.length} / {ride.car.type === 'SUV' ? 5 : 3} passengers)
+          Current Ride ({ride.passengers? 1:0} / {ride.car.type === 'SUV' ? 5 : 3} passengers)
         </p>
         <p className="text-sm text-secondary">Status: {ride.status}</p>
         <div className="mt-2">
@@ -236,7 +236,7 @@ export default function DriverDashboard() {
       return;
     }
     try {
-      const response = await api.get('/api/driver/requests')
+      const response = await api.get('/driver/requests')
       setRideRequests(response.data)
     } catch (error) {
       toast.error('Failed to load ride requests')
@@ -245,7 +245,7 @@ export default function DriverDashboard() {
 
   const loadActiveRide = async () => {
     try {
-      const response = await api.get('/api/rides/driver')
+      const response = await api.get('/rides/driver')
       setActiveRide(response.data)
     } catch (error) {
       toast.error('Failed to load active ride')
@@ -261,7 +261,7 @@ export default function DriverDashboard() {
 
   if (loading) {
     return (
-      <AuthGuard requiredRole="driver">
+      <AuthGuard requiredRole="DRIVER">
         <div className="min-h-screen bg-background flex items-center justify-center">
           <div className="text-secondary">Loading...</div>
         </div>
@@ -270,7 +270,7 @@ export default function DriverDashboard() {
   }
 
   return (
-    <AuthGuard requiredRole="driver">
+    <AuthGuard requiredRole="DRIVER">
       <div className="min-h-screen bg-background">
         <nav className="bg-white shadow-sm p-4">
           <div className="max-w-7xl mx-auto flex justify-between items-center">
@@ -330,7 +330,7 @@ export default function DriverDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="p-4 bg-primary text-white rounded-lg">
                   <p className="text-sm">Average Rating</p>
-                  <p className="text-2xl font-bold">{driver?.averageRating?.toFixed(1) || '0.0'}</p>
+                  <p className="text-2xl font-bold">{driver?.rating?.toFixed(1) || '0.0'}</p>
                 </div>
                 <div className="p-4 bg-accent text-white rounded-lg">
                   <p className="text-sm">Total Rides</p>

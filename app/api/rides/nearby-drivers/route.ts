@@ -80,6 +80,7 @@ export async function GET(request: NextRequest) {
       },
       include: {
         location: true,
+        car: true,
       },
     })
 
@@ -108,14 +109,14 @@ export async function GET(request: NextRequest) {
         currentLat: d.location?.lat,
         currentLng: d.location?.lng,
         isAvailable: d.isAvailable,
-        rating: d.averageRating,
+        rating: d.rating,
         gender: d.gender,
         distance: d.distance,
-        car: {
-            model: d.carModel,
-            color: d.carColor,
-            plateNumber: d.carPlateNumber
-        }
+        car: d.car ? {
+            model: d.car.type,
+            color: d.car.color,
+            plateNumber: d.car.plateNumber
+        } : null
       }))
       
     return NextResponse.json({

@@ -33,7 +33,7 @@ export default function UserRegister() {
     }
 
     try {
-      const response = await api.post('/auth/user/register', {
+      const response = await api.post('/api/auth/user/register', {
         email: formData.email,
         password: formData.password,
         firstName: formData.firstName,
@@ -62,7 +62,7 @@ export default function UserRegister() {
     setLoading(true)
 
     try {
-      const response = await api.post('/auth/user/verify-otp', {
+      const response = await api.post('/api/auth/user/verify-otp', {
         email: formData.email,
         otpCode: otp,
       })

@@ -17,48 +17,51 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const nearbyDrivers = drivers
-      .map((driver) => {
-        if (
-          !driver.location
-        ) {
-          return null
-        }
-        const distance = calculateDistance(
-          latitude,
-          longitude,
-          driver.location.lat,
-          driver.location.lng
-        )
-        return { ...driver, distance }
-      })
-      .filter((d): d is typeof drivers[0] & { distance: number } => d !== null && d.distance <= radius)
-      .sort((a, b) => a.distance - b.distance)
-      .map(d => ({
-        id: d.id,
-        firstName: d.firstName,
-        lastName: d.lastName,
-        currentLat: d.location?.lat,
-        currentLng: d.location?.lng,
-        isAvailable: d.isAvailable,
-        rating: d.averageRating,
-        gender: d.gender,
-        distance: d.distance,
-        car: {
-            model: d.carModel,
-            color: d.carColor,
-            plateNumber: d.carPlateNumber
-        }
-      }))
-
-        return {
-            ...ride,
-            driver: driverDetails,
-            rating: ride.ratings.length > 0 ? ride.ratings[0] : null
-        }
+    const rides = await prisma.ride.findMany({
+      where: { passengerId: payload.userId },
+      include: {
+        driver: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            carModel: true,
+            carColor: true,
+            carPlateNumber: true,
+            averageRating: true,
+          },
+        },
+        ratings: {
+          where: { passengerId: payload.userId },
+          select: {
+            rating: true,
+            comment: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
     })
 
-     return NextResponse.json({ rides: ridesWithDriverDetails })\n  } catch (error) {\n    console.error('Get trip history error:', error)\n    return NextResponse.json({ error: 'Failed to get trip history' }, { status: 500 })\n  }\n}\nreturn NextResponse.json({ rides: ridesWithDriverDetails })
+    const ridesWithDriverDetails = rides.map(ride => {
+      const driverDetails = {
+        id: ride.driver.id,
+        name: `${ride.driver.firstName} ${ride.driver.lastName}`,
+        car: {
+          model: ride.driver.carModel,
+          color: ride.driver.carColor,
+          plateNumber: ride.driver.carPlateNumber,
+        },
+        rating: ride.driver.averageRating,
+      }
+
+      return {
+        ...ride,
+        driver: driverDetails,
+        rating: ride.ratings.length > 0 ? ride.ratings[0] : null,
+      }
+    })
+
+    return NextResponse.json({ rides: ridesWithDriverDetails })
   } catch (error) {
     console.error('Get trip history error:', error)
     return NextResponse.json({ error: 'Failed to get trip history' }, { status: 500 })
