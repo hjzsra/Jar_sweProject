@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyToken } from '@/lib/auth'
+import { RideStatus, UserRole } from '@prisma/client'
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,16 +13,16 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = verifyToken(token)
-    if (!payload || payload.role.toUpperCase() !== 'USER') {
+    if (!payload || payload.role !== UserRole.USER) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const body = await request.json()
     const { rideId, reason } = body
 
-    if (!rideId || !reason) {
+    if (!rideId) {
       return NextResponse.json(
-        { error: 'Ride ID and reason are required' },
+        { error: 'Ride ID is required' },
         { status: 400 }
       )
     }
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    if (ride.status === 'completed' || ride.status === 'cancelled') {
+    if (ride.status === RideStatus.COMPLETED || ride.status === RideStatus.CANCELLED) {
       return NextResponse.json(
         { error: 'Cannot reject completed or cancelled ride' },
         { status: 400 }
@@ -45,8 +46,7 @@ export async function POST(request: NextRequest) {
     const updatedRide = await prisma.ride.update({
       where: { id: rideId },
       data: {
-        status: 'cancelled',
-        rejectionReason: reason,
+        status: RideStatus.CANCELLED,
       },
     })
 
@@ -59,4 +59,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to reject ride' }, { status: 500 })
   }
 }
-

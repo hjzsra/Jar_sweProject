@@ -1,138 +1,89 @@
-// Create ride API
-// Allows users to create a ride request (immediate or pre-booked)
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { PaymentMethod, RideStatus, UserRole } from '@prisma/client'
-import { verifyToken } from '@/lib/auth'
-import { calculateDistance } from '@/lib/utils'
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { verifyToken } from '@/lib/auth';
+import { z } from 'zod';
 
-export async function POST(request: NextRequest) {
-  try {
-    // Verify authentication
-    const token = request.headers.get('authorization')?.replace('Bearer ', '')
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
+const createRideSchema = z.object({
+  pickup: z.object({
+    lat: z.number(),
+    lng: z.number(),
+    address: z.string(),
+  }),
+  dropoff: z.object({
+    lat: z.number(),
+    lng: z.number(),
+    address: z.string(),
+  }),
+  genderPreference: z.enum(['MALE', 'FEMALE', 'NONE']),
+});
 
-    const payload = verifyToken(token)
-    if (!payload || payload.role !== UserRole.USER) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
-    const body = await request.json()
-    const {
-      driverId,
-      pickupLatitude,
-      pickupLongitude,
-      dropoffLatitude,
-      dropoffLongitude,
-      pickupAddress,
-      dropoffAddress,
-      scheduledTime,
-      isPreBooked,
-      paymentMethod,
-    } = body
-
-    // Validate input
-    if (!driverId || !pickupLatitude || !pickupLongitude || !dropoffLatitude || !dropoffLongitude || !pickupAddress || !dropoffAddress || !paymentMethod) {
-      return NextResponse.json(
-        { error: 'All required fields must be provided' },
-        { status: 400 }
-      )
-    }
-
-    // Get user to check gender
-    const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
-    })
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      )
-    }
-
-    // Get driver and verify gender match
-    const driver = await prisma.driver.findUnique({
-      where: { id: driverId },
-    })
-
-    if (!driver) {
-      return NextResponse.json(
-        { error: 'Driver not found' },
-        { status: 404 }
-      )
-    }
-
-    // Check gender match (male can only book with male, female with female)
-    if (user.gender !== driver.gender) {
-      return NextResponse.json(
-        { error: 'Gender mismatch. You can only book rides with drivers of the same gender.' },
-        { status: 400 }
-      )
-    }
-
-    // Check if driver is available
-    if (!driver.isAvailable) {
-      return NextResponse.json(
-        { error: 'Driver is not available' },
-        { status: 400 }
-      )
-    }
-
-    // Calculate distance and cost (simple calculation - 1km = $1)
-    const distance = calculateDistance(
-      pickupLatitude,
-      pickupLongitude,
-      dropoffLatitude,
-      dropoffLongitude
-    )
-    const baseCost = distance * 1.0 // $1 per km
-    
-    // Cost splitting: Currently supports single passenger per ride
-    // To support multiple passengers sharing a ride, we would need to:
-    // 1. Modify schema to support many-to-many relationship (RidePassengers table)
-    // 2. Count total passengers and divide baseCost by passenger count
-    // For now, costPerPassenger equals baseCost (single passenger)
-    const costPerPassenger = baseCost
-
-    // Create ride
-    const ride = await prisma.ride.create({
-      data: {
-        driverId,
-        passengerId: payload.userId,
-        pickupLatitude,
-        pickupLongitude,
-        dropoffLatitude,
-        dropoffLongitude,
-        pickupAddress,
-        dropoffAddress,
-        scheduledTime: isPreBooked && scheduledTime ? new Date(scheduledTime) : null,
-        isPreBooked: isPreBooked || false,
-        paymentMethod: paymentMethod === 'apple_pay' ? PaymentMethod.APPLE_PAY : PaymentMethod.CASH,
-        cost: baseCost,
-        costPerPassenger,
-        status: RideStatus.PENDING,
-      },
-    })
-
-    return NextResponse.json({
-      message: 'Ride request created successfully',
-      ride,
-    })
-  } catch (error) {
-    console.error('Create ride error:', error)
-    return NextResponse.json(
-      { error: 'Failed to create ride' },
-      { status: 500 }
-    )
-  }
+// Haversine formula to calculate distance
+function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371; // Radius of the earth in km
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const d = R * c; // Distance in km
+  return d;
 }
 
+function deg2rad(deg: number) {
+  return deg * (Math.PI / 180);
+}
+
+export async function POST(req: NextRequest) {
+    const token = req.headers.get('authorization')?.replace('Bearer ', '');
+
+    if (!token) {
+        return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    try {
+        const decoded = verifyToken(token);
+        if (!decoded || !decoded.userId || decoded.role !== 'user') {
+            return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+        }
+        const userId = decoded.userId;
+
+        const body = await req.json();
+        const validation = createRideSchema.safeParse(body);
+
+        if (!validation.success) {
+            return NextResponse.json({ error: validation.error.errors }, { status: 400 });
+        }
+
+        const { pickup, dropoff, genderPreference } = validation.data;
+
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        }
+
+        const distance = getDistance(pickup.lat, pickup.lng, dropoff.lat, dropoff.lng);
+        const cost = distance * 1.5; // Example cost calculation
+
+        const ride = await prisma.ride.create({
+            data: {
+                passengerId: userId,
+                pickupLat: pickup.lat,
+                pickupLng: pickup.lng,
+                pickupAddress: pickup.address,
+                dropoffLat: dropoff.lat,
+                dropoffLng: dropoff.lng,
+                dropoffAddress: dropoff.address,
+                genderPreference,
+                status: 'PENDING',
+                cost,
+            },
+        });
+
+        return NextResponse.json(ride);
+    } catch (error) {
+        console.error('Failed to create ride:', error);
+        return NextResponse.json({ error: 'Failed to create ride' }, { status: 500 });
+    }
+}

@@ -40,15 +40,58 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Use a transaction to ensure data consistency
+    const updatedRide = await prisma.$transaction(async (tx) => {
+      const rideForUpdate = await tx.ride.update({
+        where: { id: rideId },
+        data: {
+          status: RideStatus.COMPLETED,
+          tripEndedAt: new Date(),
+        },
+      });
+
+      // If Apple Pay, deduct from user wallet
+      if (ride.paymentMethod === PaymentMethod.APPLE_PAY) {
+        await tx.user.update({
+          where: { id: ride.passengerId },
+          data: {
+            walletBalance: {
+              decrement: ride.costPerPassenger,
+            },
+          },
+        });
+      }
+      
+      return rideForUpdate;
+    });
+
+    return NextResponse.json({
+      message: 'Trip completed',
+      ride: updatedRide,
+    })
+  } catch (error) {
+    console.error('End trip error:', error)
+    return NextResponse.json({ error: 'Failed to end trip' }, { status: 500 })
+  }
+}
+
     // Update ride status and process payment if needed
     const updatedRide = await prisma.ride.update({
       where: { id: rideId },
       data: {
         status: RideStatus.COMPLETED,
-        tripEndedAt: new Date(),
-        paymentStatus: ride.paymentMethod === PaymentMethod.APPLE_PAY ? PaymentStatus.PAID : PaymentStatus.PENDING,
       },
     })
+
+    return NextResponse.json({
+      message: 'Trip completed',
+      ride: updatedRide,
+    })
+  } catch (error) {
+    console.error('End trip error:', error)
+    return NextResponse.json({ error: 'Failed to end trip' }, { status: 500 })
+  }
+}
 
     // If Apple Pay, deduct from user wallet
     if (ride.paymentMethod === PaymentMethod.APPLE_PAY) {

@@ -44,8 +44,8 @@ export async function POST(request: NextRequest) {
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        otpCode: otp,
-        otpExpires,
+        otp: otp,
+        otpExpiresAt: otpExpires,
       },
     })
 

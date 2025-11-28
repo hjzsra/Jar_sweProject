@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import AuthGuard from '@/components/AuthGuard'
+import AuthGuard from '../../components/AuthGuard'
 import api from '@/lib/api'
 import toast from 'react-hot-toast'
 

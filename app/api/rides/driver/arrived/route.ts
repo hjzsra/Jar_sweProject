@@ -67,7 +67,6 @@ export async function POST(request: NextRequest) {
       where: { id: rideId },
       data: {
         status: RideStatus.DRIVER_ARRIVED,
-        driverArrivedAt: new Date(),
       },
     })
 

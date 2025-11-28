@@ -1,12 +1,10 @@
 'use client'
 
-import {MapContainer,TileLayer, Marker, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
-import { LatLngExpression } from 'leaflet'
+import L, { LatLngExpression } from 'leaflet'
 
 // Fix for default icon issue with webpack
-import L from 'leaflet'
-
 // @ts-ignore
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -15,20 +13,20 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
 })
 
-// NOTE: To prevent SSR issues with Next.js, this component should be imported dynamically
-// where it is used.
-// Example:
-// import dynamic from 'next/dynamic'
-// const Map = dynamic(() => import('@/components/Map'), { ssr: false })
-
 interface MapEventsProps {
-  onLocationSelect: (location: { lat: number; lng: number }) => void
+  onLocationSelect?: (location: { lat: number; lng: number }) => void
+  onMapClick?: (latlng: L.LatLng) => void
 }
 
-const MapEvents = ({ onLocationSelect }: MapEventsProps) => {
+const MapEvents = ({ onLocationSelect, onMapClick }: MapEventsProps) => {
   useMapEvents({
     click(e) {
-      onLocationSelect(e.latlng)
+      if (onLocationSelect) {
+        onLocationSelect(e.latlng)
+      }
+      if (onMapClick) {
+        onMapClick(e.latlng)
+      }
     },
   })
   return null
@@ -36,17 +34,25 @@ const MapEvents = ({ onLocationSelect }: MapEventsProps) => {
 
 interface MapComponentProps {
   position: LatLngExpression
-  onLocationSelect: (location: { lat: number; lng: number }) => void
-  markerPosition?: { lat: number; lng: number }
   zoom?: number
+  markers?: { position: [number, number]; popupText: string }[]
+  onLocationSelect?: (location: { lat: number; lng: number }) => void
+  markerPosition?: { lat: number; lng: number }
+  onMapClick?: (latlng: L.LatLng) => void
 }
 
 const MapComponent = ({
   position,
+  zoom = 13,
+  markers = [],
   onLocationSelect,
   markerPosition,
-  zoom = 13,
+  onMapClick,
 }: MapComponentProps) => {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
   return (
     <MapContainer
       center={position}
@@ -57,8 +63,13 @@ const MapComponent = ({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       />
+      {markers.map((marker, index) => (
+        <Marker key={index} position={marker.position}>
+          <Popup>{marker.popupText}</Popup>
+        </Marker>
+      ))}
       {markerPosition && <Marker position={markerPosition}></Marker>}
-      <MapEvents onLocationSelect={onLocationSelect} />
+      <MapEvents onLocationSelect={onLocationSelect} onMapClick={onMapClick} />
     </MapContainer>
   )
 }

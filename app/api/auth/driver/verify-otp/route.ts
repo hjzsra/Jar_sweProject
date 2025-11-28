@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import jwt from 'jsonwebtoken';
+import { generateToken } from '@/lib/auth';
+import { UserRole } from '@prisma/client';
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,12 +45,11 @@ export async function POST(request: NextRequest) {
     });
 
     // Generate a token for the newly verified driver
-    // This now uses 'userId' to match other endpoints
-    const token = jwt.sign(
-      { userId: updatedDriver.id, role: 'driver' },
-      process.env.JWT_SECRET as string,
-      { expiresIn: '1h' }
-    );
+    const token = generateToken({
+      userId: updatedDriver.id,
+      email: updatedDriver.email,
+      role: UserRole.DRIVER,
+    });
 
     return NextResponse.json({
       message: 'Phone number verified successfully',

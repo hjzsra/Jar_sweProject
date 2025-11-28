@@ -2,13 +2,14 @@
 // Returns available drivers within a specified radius
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { verifyToken, getTokenFromRequest } from '@/lib/auth'
+import { verifyToken } from '@/lib/auth'
 import { calculateDistance } from '@/lib/utils'
+import { UserRole } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
   try {
     // Verify authentication
-    const token = getTokenFromRequest(request.headers)
+    const token = request.headers.get('authorization')?.replace('Bearer ', '');
     if (!token) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
     }
 
     const payload = verifyToken(token)
-    if (!payload || payload.role !== 'user') {
+    if (!payload || payload.role !== UserRole.USER) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -73,21 +74,12 @@ export async function GET(request: NextRequest) {
         isAvailable: true,
         gender: user.gender, // Only show drivers of same gender
         licenseVerified: true,
-        currentLatitude: { not: null },
-        currentLongitude: { not: null },
+        location: {
+          isNot: null,
+        },
       },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        currentLatitude: true,
-        currentLongitude: true,
-        isAvailable: true,
-        averageRating: true,
-        carModel: true,
-        carColor: true,
-        carPlateNumber: true,
-        gender: true,
+      include: {
+        location: true,
       },
     })
 
@@ -95,22 +87,37 @@ export async function GET(request: NextRequest) {
     const nearbyDrivers = drivers
       .map((driver) => {
         if (
-          driver.currentLatitude === null ||
-          driver.currentLongitude === null
+          !driver.location
         ) {
           return null
         }
         const distance = calculateDistance(
           latitude,
           longitude,
-          driver.currentLatitude,
-          driver.currentLongitude
+          driver.location.lat,
+          driver.location.lng
         )
         return { ...driver, distance }
       })
-      .filter((d): d is typeof drivers[number] & { distance: number } => d !== null && d.distance <= radius)
+      .filter((d): d is typeof drivers[0] & { distance: number } => d !== null && d.distance <= radius)
       .sort((a, b) => a.distance - b.distance)
-
+      .map(d => ({
+        id: d.id,
+        firstName: d.firstName,
+        lastName: d.lastName,
+        currentLat: d.location?.lat,
+        currentLng: d.location?.lng,
+        isAvailable: d.isAvailable,
+        rating: d.averageRating,
+        gender: d.gender,
+        distance: d.distance,
+        car: {
+            model: d.carModel,
+            color: d.carColor,
+            plateNumber: d.carPlateNumber
+        }
+      }))
+      
     return NextResponse.json({
       drivers: nearbyDrivers,
       count: nearbyDrivers.length,

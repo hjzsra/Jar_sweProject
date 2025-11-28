@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       where: { id: rideId },
       data: {
         status: RideStatus.IN_PROGRESS,
-        tripStartedAt: new Date(),
+        
       },
     })
 

@@ -56,18 +56,52 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if ride is in pending status
+
     if (ride.status !== RideStatus.PENDING) {
       return NextResponse.json(
-        { error: 'Ride is not in pending status' },
+        { error: 'Ride is not pending and cannot be accepted' },
         { status: 400 }
       )
     }
+  if (!token) {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  }
+
+  try {
+    const decoded = verifyToken(token);
+    if (!decoded || !decoded.userId || decoded.role !== 'driver') {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+    const driverId = decoded.userId;
+
+    const activeRide = await prisma.ride.findFirst({
+      where: {
+        driverId,
+        status: { in: ['ACCEPTED', 'IN_PROGRESS', 'DRIVER_ARRIVED', 'STARTED'] },
+      },
+      include: {
+        passenger: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    return NextResponse.json(activeRide);
+  } catch (error) {
+    console.error('Failed to fetch active ride:', error);
+    return NextResponse.json({ error: 'Failed to fetch active ride' }, { status: 500 });
+  }
+}
 
     // Check if ride is pre-booked and if it's time
     if (ride.isPreBooked && ride.scheduledTime) {
       const now = new Date()
       const scheduledTime = new Date(ride.scheduledTime)
-      // Allow acceptance 30 minutes before scheduled time
+    // Allow acceptance 30 minutes before scheduled time
       const timeDiff = scheduledTime.getTime() - now.getTime()
       if (timeDiff < -30 * 60 * 1000) {
         return NextResponse.json(

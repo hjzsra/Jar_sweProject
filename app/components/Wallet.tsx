@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import api from '@/lib/api'
+import api from '../lib/api'
 import toast from 'react-hot-toast'
 
 export default function Wallet() {
@@ -15,7 +15,7 @@ export default function Wallet() {
   const fetchBalance = async () => {
     try {
       setLoading(true)
-      const response = await api.get('/user/wallet')
+      const response = await api.get('/api/user/wallet')
       setBalance(response.data.balance)
     } catch (error) {
       toast.error('Failed to fetch wallet balance.')

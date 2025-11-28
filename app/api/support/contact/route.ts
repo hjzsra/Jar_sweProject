@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyToken } from '@/lib/auth'
+import { SupportTicketStatus, UserRole } from '@prisma/client'
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
     let userId = null
     if (token) {
       const payload = verifyToken(token)
-      if (payload && payload.role === 'user') {
+      if (payload && payload.role === UserRole.USER) {
         userId = payload.userId
       }
     }
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
         email,
         subject,
         message,
-        status: 'open',
+        status: SupportTicketStatus.OPEN,
       },
     })
 
@@ -49,4 +50,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

@@ -14,7 +14,7 @@ function RideRequestCard({ request, onUpdate }: { request: any; onUpdate: () => 
   const handleAccept = async () => {
     setLoading(true)
     try {
-      await api.post('/rides/driver/accept', { rideId: request.id })
+      await api.post('/api/rides/accept', { rideRequestId: request.id })
       toast.success('Ride accepted!')
       onUpdate()
     } catch (error: any) {
@@ -43,19 +43,14 @@ function RideRequestCard({ request, onUpdate }: { request: any; onUpdate: () => 
       <div className="flex justify-between items-start">
         <div>
           <p className="font-medium">
-            {request.pickupAddress} → {request.dropoffAddress}
+            {request.pickupLat}, {request.pickupLng} → {request.dropoffLat}, {request.dropoffLng}
           </p>
           <p className="text-sm text-secondary">
-            Passenger: {request.passenger?.firstName} {request.passenger?.lastName}
+            Passenger: {request.user?.firstName} {request.user?.lastName}
           </p>
           <p className="text-sm text-secondary">
-            Distance: {request.distance?.toFixed(2)} km | Cost: ${request.cost?.toFixed(2)}
+            Estimated Cost: ${request.estimatedCost?.toFixed(2)}
           </p>
-          {request.isPreBooked && request.scheduledTime && (
-            <p className="text-sm text-secondary">
-              Scheduled: {new Date(request.scheduledTime).toLocaleString()}
-            </p>
-          )}
         </div>
         <div className="flex gap-2">
           <button
@@ -79,17 +74,30 @@ function RideRequestCard({ request, onUpdate }: { request: any; onUpdate: () => 
 }
 
 // Active Ride Card Component
-function ActiveRideCard({ ride }: { ride: any }) {
+function ActiveRideCard({ ride, onUpdate }: { ride: any; onUpdate: () => void }) {
   const [loading, setLoading] = useState(false)
 
-  const handleAction = async (action: string) => {
+  const handleStartRide = async () => {
     setLoading(true)
     try {
-      await api.post(`/rides/driver/${action}`, { rideId: ride.id })
-      toast.success(`Ride ${action}ed`)
-      window.location.reload()
+      await api.post('/api/rides/start', { rideId: ride.id })
+      toast.success('Ride started!')
+      onUpdate()
     } catch (error: any) {
-      toast.error(error.response?.data?.error || `Failed to ${action} ride`)
+      toast.error(error.response?.data?.error || 'Failed to start ride')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleEndRide = async () => {
+    setLoading(true)
+    try {
+      await api.post('/api/rides/end', { rideId: ride.id })
+      toast.success('Ride completed!')
+      onUpdate()
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to end ride')
     } finally {
       setLoading(false)
     }
@@ -99,32 +107,31 @@ function ActiveRideCard({ ride }: { ride: any }) {
     <div className="p-4 border rounded-lg">
       <div>
         <p className="font-medium">
-          {ride.pickupAddress} → {ride.dropoffAddress}
+          Current Ride ({ride.passengers.length} / {ride.car.type === 'SUV' ? 5 : 3} passengers)
         </p>
         <p className="text-sm text-secondary">Status: {ride.status}</p>
+        <div className="mt-2">
+          <h4 className="font-bold">Passengers:</h4>
+          <ul className="list-disc list-inside">
+            {ride.passengers.map((p: any) => (
+              <li key={p.id} className="text-sm">{p.user.firstName} {p.user.lastName}</li>
+            ))}
+          </ul>
+        </div>
       </div>
       <div className="mt-4 flex gap-2">
-        {ride.status === 'accepted' && (
+        {ride.status === 'PENDING' && (
           <button
-            onClick={() => handleAction('arrived')}
+            onClick={handleStartRide}
             className="btn btn-primary"
             disabled={loading}
           >
-            I've Arrived
+            Start Ride
           </button>
         )}
-        {ride.status === 'driver_arrived' && (
+        {ride.status === 'IN_PROGRESS' && (
           <button
-            onClick={() => handleAction('start')}
-            className="btn btn-primary"
-            disabled={loading}
-          >
-            Start Trip
-          </button>
-        )}
-        {ride.status === 'in_progress' && (
-          <button
-            onClick={() => handleAction('end')}
+            onClick={handleEndRide}
             className="btn btn-primary"
             disabled={loading}
           >
@@ -135,7 +142,7 @@ function ActiveRideCard({ ride }: { ride: any }) {
           onClick={() => window.open(`/driver/chat?rideId=${ride.id}`, '_blank')}
           className="btn btn-outline"
         >
-          Chat
+          Chat with Passengers
         </button>
       </div>
     </div>
@@ -147,7 +154,7 @@ export default function DriverDashboard() {
   const [activeTab, setActiveTab] = useState<'home' | 'requests' | 'active' | 'history'>('home')
   const [driver, setDriver] = useState<any>(null)
   const [rideRequests, setRideRequests] = useState<any[]>([])
-  const [activeRides, setActiveRides] = useState<any[]>([])
+  const [activeRide, setActiveRide] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [isAvailable, setIsAvailable] = useState(false)
 
@@ -163,9 +170,9 @@ export default function DriverDashboard() {
       loadRideRequests()
     }
     if (activeTab === 'active') {
-      loadActiveRides()
+      loadActiveRide()
     }
-  }, [activeTab])
+  }, [activeTab, isAvailable])
 
   const loadDriverData = async () => {
     try {
@@ -224,17 +231,25 @@ export default function DriverDashboard() {
   }
 
   const loadRideRequests = async () => {
+    if (!isAvailable) {
+      setRideRequests([]);
+      return;
+    }
     try {
-      const response = await api.get('/driver/requests?radius=5')
-      setRideRequests(response.data.requests)
+      const response = await api.get('/api/driver/requests')
+      setRideRequests(response.data)
     } catch (error) {
       toast.error('Failed to load ride requests')
     }
   }
 
-  const loadActiveRides = async () => {
-    // In production, fetch active rides from API
-    setActiveRides([])
+  const loadActiveRide = async () => {
+    try {
+      const response = await api.get('/api/rides/driver')
+      setActiveRide(response.data)
+    } catch (error) {
+      toast.error('Failed to load active ride')
+    }
   }
 
   const handleLogout = () => {
@@ -295,7 +310,7 @@ export default function DriverDashboard() {
             <button
               onClick={() => {
                 setActiveTab('active')
-                loadActiveRides()
+                loadActiveRide()
               }}
               className={`btn ${activeTab === 'active' ? 'btn-primary' : 'btn-outline'}`}
             >
@@ -355,15 +370,11 @@ export default function DriverDashboard() {
 
           {activeTab === 'active' && (
             <div className="card">
-              <h2 className="text-2xl font-bold mb-4">Active Rides</h2>
-              {activeRides.length === 0 ? (
-                <p className="text-secondary">No active rides</p>
+              <h2 className="text-2xl font-bold mb-4">Active Ride</h2>
+              {activeRide ? (
+                <ActiveRideCard ride={activeRide} onUpdate={loadActiveRide} />
               ) : (
-                <div className="space-y-4">
-                  {activeRides.map((ride) => (
-                    <ActiveRideCard key={ride.id} ride={ride} />
-                  ))}
-                </div>
+                <p className="text-secondary">No active rides</p>
               )}
             </div>
           )}
