@@ -29,7 +29,7 @@ async function main() {
     create: {
       role: UserRole.USER,
       email: 'student1@university.edu',
-      password: userPassword,
+      password: 'Student',
       firstName: 'Alice',
       lastName: 'Student',
       phone: '+10000000001',

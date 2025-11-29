@@ -39,7 +39,8 @@ export async function POST(request: NextRequest) {
     } = body
 
     // Validate input
-    if (!driverId || !pickupLatitude || !pickupLongitude || !dropoffLatitude || !dropoffLongitude || !pickupAddress || !dropoffAddress || !paymentMethod) {
+   // !pickupLatitude || !pickupLongitude || !dropoffLatitude || !dropoffLongitude
+    if (!driverId|| !pickupAddress || !dropoffAddress || !paymentMethod) {
       return NextResponse.json(
         { error: 'All required fields must be provided' },
         { status: 400 }
@@ -71,12 +72,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Check gender match (male can only book with male, female with female)
-    if (user.gender !== driver.gender) {
-      return NextResponse.json(
-        { error: 'Gender mismatch. You can only book rides with drivers of the same gender.' },
-        { status: 400 }
-      )
-    }
+//    if (user.gender !== driver.gender) {
+//      return NextResponse.json(
+//       { error: 'Gender mismatch. You can only book rides with drivers of the same gender.' },
+//        { status: 400 }
+//     )
+// }
 
     // Check if driver is available
     if (!driver.isAvailable) {

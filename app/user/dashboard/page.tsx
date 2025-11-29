@@ -18,6 +18,7 @@ export default function UserDashboard() {
 
   useEffect(() => {
     loadUserData()
+    loadNearbyDrivers()
   }, [])
 
   const loadUserData = async () => {
@@ -25,6 +26,7 @@ export default function UserDashboard() {
       const [profileRes, walletRes] = await Promise.all([
         api.get('/user/profile'),
         api.get('/user/wallet'),
+
       ])
       setUser(profileRes.data.user)
       setWalletBalance(walletRes.data.balance)
@@ -44,28 +46,22 @@ export default function UserDashboard() {
     }
   }
 
-  const loadNearbyDrivers = async () => {
-    try {
-      // Get user location (in production, use geolocation API)
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const response = await api.get('/rides/nearby-drivers', {
-            params: {
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-              radius: 5,
-            },
-          })
-          setNearbyDrivers(response.data.drivers)
-        },
-        () => {
-          toast.error('Please enable location services')
-        }
-      )
-    } catch (error) {
-      toast.error('Failed to load nearby drivers')
-    }
-  }
+ const loadNearbyDrivers = async () => {
+   try {
+     const response = await api.get('/rides/nearby-drivers', {
+       params: {
+         onlyAvailable: true,
+         onlyVerified: true,
+         sameGender: true,
+       },
+     })
+
+     setNearbyDrivers(response.data.drivers)
+   } catch (error) {
+     toast.error('Failed to load drivers')
+   }
+ }
+
 
   const handleLogout = () => {
     localStorage.removeItem('token')
