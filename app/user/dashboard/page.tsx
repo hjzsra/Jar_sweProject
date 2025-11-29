@@ -14,10 +14,14 @@ export default function UserDashboard() {
   const [walletBalance, setWalletBalance] = useState(0)
   const [tripHistory, setTripHistory] = useState<any[]>([])
   const [nearbyDrivers, setNearbyDrivers] = useState<any[]>([])
+  const [activeRide, setActiveRide] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     loadUserData()
+    // Check for active ride periodically
+    const interval = setInterval(loadActiveRide, 10000) // Every 10 seconds
+    return () => clearInterval(interval)
   }, [])
 
   const loadUserData = async () => {
@@ -28,10 +32,21 @@ export default function UserDashboard() {
       ])
       setUser(profileRes.data.user)
       setWalletBalance(walletRes.data.balance)
+      loadActiveRide()
     } catch (error) {
       toast.error('Failed to load user data')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadActiveRide = async () => {
+    try {
+      const response = await api.get('/user/active-ride')
+      setActiveRide(response.data.ride)
+    } catch (error) {
+      // Silently fail - user might not have an active ride
+      console.error('Failed to load active ride')
     }
   }
 
@@ -100,7 +115,7 @@ export default function UserDashboard() {
         </nav>
 
         <div className="max-w-7xl mx-auto p-4">
-          <div className="flex gap-4 mb-6">
+          <div className="flex gap-4 mb-6 flex-wrap">
             <button
               onClick={() => setActiveTab('home')}
               className={`btn ${activeTab === 'home' ? 'btn-primary' : 'btn-outline'}`}
@@ -108,13 +123,10 @@ export default function UserDashboard() {
               Home
             </button>
             <button
-              onClick={() => {
-                setActiveTab('book')
-                loadNearbyDrivers()
-              }}
-              className={`btn ${activeTab === 'book' ? 'btn-primary' : 'btn-outline'}`}
+              onClick={() => router.push('/user/book-ride')}
+              className="btn bg-accent text-white hover:bg-green-700"
             >
-              Book Ride
+              Book Ride with Map
             </button>
             <button
               onClick={() => {
@@ -152,20 +164,47 @@ export default function UserDashboard() {
           </div>
 
           {activeTab === 'home' && (
-            <div className="card">
-              <h2 className="text-2xl font-bold mb-4">Welcome, {user?.firstName}!</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 bg-primary text-white rounded-lg">
-                  <p className="text-sm">Wallet Balance</p>
-                  <p className="text-2xl font-bold">${walletBalance.toFixed(2)}</p>
+            <div className="space-y-4">
+              {activeRide && (
+                <div className="card bg-accent text-white">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-xl font-bold">Active Ride</h3>
+                      <p className="text-sm opacity-90">Status: {activeRide.status}</p>
+                    </div>
+                    <button
+                      onClick={() => router.push(`/user/track-ride?rideId=${activeRide.id}`)}
+                      className="btn bg-white text-accent hover:bg-gray-100"
+                    >
+                      Track Ride
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm">From: {activeRide.pickupAddress}</p>
+                    <p className="text-sm">To: {activeRide.dropoffAddress}</p>
+                    <p className="text-sm">
+                      Driver: {activeRide.driver?.firstName} {activeRide.driver?.lastName} -{' '}
+                      {activeRide.driver?.carModel} ({activeRide.driver?.carPlateNumber})
+                    </p>
+                  </div>
                 </div>
-                <div className="p-4 bg-accent text-white rounded-lg">
-                  <p className="text-sm">Total Trips</p>
-                  <p className="text-2xl font-bold">{tripHistory.length}</p>
-                </div>
-                <div className="p-4 bg-secondary text-white rounded-lg">
-                  <p className="text-sm">University</p>
-                  <p className="text-lg font-bold">{user?.university}</p>
+              )}
+
+              <div className="card">
+                <h2 className="text-2xl font-bold mb-4">Welcome, {user?.firstName}!</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 bg-primary text-white rounded-lg">
+                    <p className="text-sm">Wallet Balance</p>
+                    <p className="text-2xl font-bold">{walletBalance.toFixed(2)} ر.س</p>
+                  </div>
+                  <div className="p-4 bg-accent text-white rounded-lg">
+                    <p className="text-sm">Total Trips</p>
+                    <p className="text-2xl font-bold">{tripHistory.length}</p>
+                  </div>
+                  <div className="p-4 bg-secondary text-white rounded-lg">
+                    <p className="text-sm">Status</p>
+                    <p className="text-lg font-bold">{activeRide ? 'In Ride' : 'Available'}</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -417,7 +456,7 @@ function WalletSection({ balance, onUpdate }: { balance: number; onUpdate: () =>
     <div className="space-y-4">
       <div className="p-6 bg-primary text-white rounded-lg">
         <p className="text-sm">Current Balance</p>
-        <p className="text-3xl font-bold">${balance.toFixed(2)}</p>
+        <p className="text-3xl font-bold">{balance.toFixed(2)} ر.س</p>
       </div>
       <form onSubmit={handleAddFunds} className="space-y-4">
         <div>
@@ -460,7 +499,7 @@ function TripHistory({ rides }: { rides: any[] }) {
                 Driver: {ride.driver?.firstName} {ride.driver?.lastName} ⭐ {ride.driver?.averageRating?.toFixed(1) || 'N/A'}
               </p>
               <p className="text-sm text-secondary">
-                Cost: ${ride.costPerPassenger.toFixed(2)} | Status: {ride.status}
+                Cost: {ride.costPerPassenger.toFixed(2)} ر.س | Status: {ride.status}
               </p>
             </div>
             {ride.status === 'completed' && ride.ratings.length === 0 && (

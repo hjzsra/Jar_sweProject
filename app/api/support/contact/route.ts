@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
         email,
         subject,
         message,
-        status: 'open',
+        status: 'OPEN',
       },
     })
 
