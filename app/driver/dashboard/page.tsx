@@ -98,8 +98,12 @@ export default function DriverDashboard() {
   }
 
   const loadActiveRides = async () => {
-    // In production, fetch active rides from API
-    setActiveRides([])
+    try {
+      const response = await api.get('/driver/active-rides')
+      setActiveRides(response.data.rides)
+    } catch (error) {
+      toast.error('Failed to load active rides')
+    }
   }
 
   const handleLogout = () => {
@@ -318,20 +322,7 @@ function RideRequestCard({ request, onUpdate }: { request: any; onUpdate: () => 
 
 // Active Ride Card Component
 function ActiveRideCard({ ride }: { ride: any }) {
-  const [loading, setLoading] = useState(false)
-
-  const handleAction = async (action: string) => {
-    setLoading(true)
-    try {
-      await api.post(`/rides/driver/${action}`, { rideId: ride.id })
-      toast.success(`Ride ${action}ed`)
-      window.location.reload()
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || `Failed to ${action} ride`)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const router = useRouter()
 
   return (
     <div className="p-4 border rounded-lg">
@@ -340,35 +331,17 @@ function ActiveRideCard({ ride }: { ride: any }) {
           {ride.pickupAddress} → {ride.dropoffAddress}
         </p>
         <p className="text-sm text-secondary">Status: {ride.status}</p>
+        <p className="text-sm text-secondary">
+          Passenger: {ride.passenger?.firstName} {ride.passenger?.lastName}
+        </p>
       </div>
-      <div className="mt-4 flex gap-2">
-        {ride.status === 'accepted' && (
-          <button
-            onClick={() => handleAction('arrived')}
-            className="btn btn-primary"
-            disabled={loading}
-          >
-            I've Arrived
-          </button>
-        )}
-        {ride.status === 'driver_arrived' && (
-          <button
-            onClick={() => handleAction('start')}
-            className="btn btn-primary"
-            disabled={loading}
-          >
-            Start Trip
-          </button>
-        )}
-        {ride.status === 'in_progress' && (
-          <button
-            onClick={() => handleAction('end')}
-            className="btn btn-primary"
-            disabled={loading}
-          >
-            End Trip
-          </button>
-        )}
+      <div className="mt-4 flex gap-2 flex-wrap">
+        <button
+          onClick={() => router.push(`/driver/track-ride?rideId=${ride.id}`)}
+          className="btn bg-accent text-white hover:bg-green-700"
+        >
+          Track with Map
+        </button>
         <button
           onClick={() => window.open(`/driver/chat?rideId=${ride.id}`, '_blank')}
           className="btn btn-outline"
