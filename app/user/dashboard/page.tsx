@@ -100,7 +100,7 @@ export default function UserDashboard() {
         </nav>
 
         <div className="max-w-7xl mx-auto p-4">
-          <div className="flex gap-4 mb-6">
+          <div className="flex gap-4 mb-6 flex-wrap">
             <button
               onClick={() => setActiveTab('home')}
               className={`btn ${activeTab === 'home' ? 'btn-primary' : 'btn-outline'}`}
@@ -108,13 +108,10 @@ export default function UserDashboard() {
               Home
             </button>
             <button
-              onClick={() => {
-                setActiveTab('book')
-                loadNearbyDrivers()
-              }}
-              className={`btn ${activeTab === 'book' ? 'btn-primary' : 'btn-outline'}`}
+              onClick={() => router.push('/user/book-ride')}
+              className="btn bg-accent text-white hover:bg-green-700"
             >
-              Book Ride
+              Book Ride with Map
             </button>
             <button
               onClick={() => {
