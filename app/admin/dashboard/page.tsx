@@ -121,7 +121,7 @@ export default function AdminDashboard() {
                         <td className="p-2 text-sm">
                           {ride.pickupAddress.substring(0, 20)}... → {ride.dropoffAddress.substring(0, 20)}...
                         </td>
-                        <td className="p-2">${ride.cost.toFixed(2)}</td>
+                        <td className="p-2">{ride.cost.toFixed(2)} ر.س</td>
                         <td className="p-2">
                           <span className={`px-2 py-1 rounded text-xs ${
                             ride.status === 'completed' ? 'bg-green-100 text-green-800' :
