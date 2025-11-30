@@ -11,8 +11,27 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { email, password, firstName, lastName, phone, gender, university } = body
 
+    console.log('📝 Registration attempt:', { 
+      email, 
+      firstName, 
+      lastName, 
+      phone, 
+      gender, 
+      university,
+      hasPassword: !!password 
+    })
+
     // Validate input
     if (!email || !password || !firstName || !lastName || !phone || !gender || !university) {
+      console.log('❌ Missing required fields:', {
+        email: !!email,
+        password: !!password,
+        firstName: !!firstName,
+        lastName: !!lastName,
+        phone: !!phone,
+        gender: !!gender,
+        university: !!university
+      })
       return NextResponse.json(
         { error: 'All fields are required' },
         { status: 400 }
@@ -20,7 +39,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate university email format
-    if (!isValidUniversityEmail(email)) {
+    const isValidEmail = isValidUniversityEmail(email)
+    console.log('📧 Email validation:', { email, isValid: isValidEmail })
+    
+    if (!isValidEmail) {
       return NextResponse.json(
         { error: 'Please use a valid university email address' },
         { status: 400 }
@@ -33,11 +55,14 @@ export async function POST(request: NextRequest) {
     })
 
     if (existingUser) {
+      console.log('❌ User already exists:', email)
       return NextResponse.json(
         { error: 'User with this email already exists' },
         { status: 400 }
       )
     }
+
+    console.log('✅ Validation passed, creating user...')
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10)
@@ -45,6 +70,8 @@ export async function POST(request: NextRequest) {
     // Generate OTP
     const otp = generateOTP()
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
+
+    console.log('🔐 Generated OTP:', otp)
 
     // Create user (email not verified yet)
     const user = await prisma.user.create({
@@ -62,11 +89,14 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    console.log('✅ User created:', user.id)
+
     // Send OTP email
     const emailSent = await sendOTP(email, otp)
     if (!emailSent) {
-      // Still create user, but log error
-      console.error('Failed to send OTP email')
+      console.error('⚠️  Failed to send OTP email')
+    } else {
+      console.log('✅ OTP email sent')
     }
 
     return NextResponse.json({
@@ -74,11 +104,10 @@ export async function POST(request: NextRequest) {
       userId: user.id,
     })
   } catch (error) {
-    console.error('Registration error:', error)
+    console.error('❌ Registration error:', error)
     return NextResponse.json(
       { error: 'Registration failed' },
       { status: 500 }
     )
   }
 }
-

@@ -25,13 +25,13 @@ function toRad(degrees: number): number {
 
 // Validate university email format
 export function isValidUniversityEmail(email: string): boolean {
-  // Simple validation - check for common university email patterns
-  const allowedDomainPattern = /^[a-zA-Z0-9._%+-]+@sm\.imamu\.edu\.sa$/i
-  return allowedDomainPattern.test(email)
+  // Allow any Saudi or Qatar educational institution
+  const eduPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(edu\.sa|edu\.qa)$/i
+  return eduPattern.test(email)
 }
 
-// Format currency
+// Format currency in Saudi Riyals (SAR)
 export function formatCurrency(amount: number): string {
-  return `$${amount.toFixed(2)}`
+  return `${amount.toFixed(2)} ر.س`
 }
 
