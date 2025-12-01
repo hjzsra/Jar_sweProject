@@ -13,7 +13,7 @@ export default function Home() {
       <div className="max-w-md w-full">
         <div className="card text-center">
           <h1 className="text-3xl font-bold text-primary mb-2">
-            Student Ride Sharing
+            JAR - Just A Safe Student Ride
           </h1>
           <p className="text-secondary mb-8">Share rides, save money, connect</p>
 

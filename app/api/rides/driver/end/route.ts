@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyToken } from '@/lib/auth'
+import { RideStatus, PaymentStatus } from '@prisma/client'
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    if (ride.status !== 'in_progress') {
+    if (ride.status !== RideStatus.IN_PROGRESS) {
       return NextResponse.json(
         { error: 'Trip must be in progress' },
         { status: 400 }
@@ -43,14 +44,17 @@ export async function POST(request: NextRequest) {
     const updatedRide = await prisma.ride.update({
       where: { id: rideId },
       data: {
-        status: 'completed',
+        status: RideStatus.COMPLETED,
         tripEndedAt: new Date(),
-        paymentStatus: ride.paymentMethod === 'apple_pay' ? 'completed' : 'pending',
+        paymentStatus:
+          ride.paymentMethod === 'APPLE_PAY'
+            ? PaymentStatus.PAID
+            : PaymentStatus.PENDING,
       },
     })
 
     // If Apple Pay, deduct from user wallet
-    if (ride.paymentMethod === 'apple_pay') {
+    if (ride.paymentMethod === 'APPLE_PAY') {
       await prisma.user.update({
         where: { id: ride.passengerId },
         data: {
@@ -70,4 +74,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to end trip' }, { status: 500 })
   }
 }
-

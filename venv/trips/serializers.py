@@ -1,13 +1,9 @@
 from rest_framework import serializers
-from rest_framework_gis.serializers import GeoFeatureModelSerializer
+from rest_framework_gis.serializers import GeoFeatureModelSerializer  # type: ignore
 from django.contrib.gis.geos import Point
-from rest_framework.routers import DefaultRouter
-from .views import RideViewSet, BookingRequestViewSet
-from .models import UserLocation, ZoneMap, LocationHistory, Trip
+from .models import UserLocation, ZoneMap, LocationHistory, Ride, Booking, Trip
 from user_auth.models import User
 from django.utils import timezone
-from .models import * 
-
 
 
 class RideSerializer(serializers.ModelSerializer):
@@ -16,34 +12,35 @@ class RideSerializer(serializers.ModelSerializer):
     Used for creating (Share ride) and listing (Click map to view available rides) rides.
     """
     owner_username = serializers.CharField(source='owner.username', read_only=True)
-    available_seats = serializers.ReadOnlyField() 
-    
-class Meta:
-        model = Ride
-        fields = [
-            'id', 
-            'owner',
-            'owner_username', 
-            'start_location', 
-            'end_location', 
-            'departure_time', 
-            'max_passengers', 
-            'is_active',
-            'available_seats' 
-        ]
-        read_only_fields = ['owner'] 
+    available_seats = serializers.ReadOnlyField()
 
-def validate_departure_time(self, value):
+    class Meta:
+        model = Ride
+        fields = (
+            'id',
+            'owner',
+            'owner_username',
+            'start_location',
+            'end_location',
+            'departure_time',
+            'max_passengers',
+            'is_active',
+            'available_seats'
+        )
+        read_only_fields = ('owner',)
+
+    def validate_departure_time(self, value):
         """Check that the departure time is not in the past."""
         if value < timezone.now():
             raise serializers.ValidationError("Departure time cannot be in the past.")
         return value
 
-def validate_max_passengers(self, value):
+    def validate_max_passengers(self, value):
         """Check that max passengers is a positive number."""
         if value <= 0:
             raise serializers.ValidationError("A ride must allow at least one passenger.")
         return value
+
 
 class BookingSerializer(serializers.ModelSerializer):
     """
@@ -58,28 +55,27 @@ class BookingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Booking
-        fields = [
-            'id', 
-            'ride', 
-            'passenger', 
-            'passenger_username', 
-            'seats_requested', 
+        fields = (
+            'id',
+            'ride',
+            'passenger',
+            'passenger_username',
+            'seats_requested',
             'status',
             'status_display',
             'booked_at',
-            'ride_start_location', 
-            'ride_end_location', 
+            'ride_start_location',
+            'ride_end_location',
             'ride_departure_time',
-        ]
-        read_only_fields = ['passenger', 'ride', 'status'] 
-        
+        )
+        read_only_fields = ('passenger', 'ride', 'status',)
+
     def validate_seats_requested(self, value):
         """Check that the number of seats requested is valid."""
         if value <= 0:
             raise serializers.ValidationError("You must request at least one seat.")
         return value
 
-        
 
 class PointSerializer(serializers.Field):
     def to_representation(self, value):
@@ -89,7 +85,7 @@ class PointSerializer(serializers.Field):
                 'longitude': value.x
             }
         return None
-    
+
     def to_internal_value(self, data):
         try:
             latitude = float(data.get('latitude'))
@@ -99,13 +95,15 @@ class PointSerializer(serializers.Field):
             raise serializers.ValidationError(
                 "Invalid location format. Expected {latitude: float, longitude: float}"
             )
+
+
 class UserLocationSerializer(serializers.ModelSerializer):
-     current_location = PointSerializer()
-     distance = serializers.FloatField(read_only=True, required=False)
-    
-     class Meta:
+    current_location = PointSerializer()
+    distance = serializers.FloatField(read_only=True, required=False)
+
+    class Meta:
         model = UserLocation
-        fields = [
+        fields = (
             'id',
             'user',
             'current_location',
@@ -118,19 +116,18 @@ class UserLocationSerializer(serializers.ModelSerializer):
             'city',
             'zone_name',
             'distance',
-        ]
-        read_only_fields = ['user', 'last_location_update']
-    
-     def update(self, instance, validated_data):
-       
+        )
+        read_only_fields = ('user', 'last_location_update',)
+
+    def update(self, instance, validated_data):
         location_data = validated_data.pop('current_location', None)
-        
+
         if location_data:
             instance.current_location = location_data
-        
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        
+
         instance.save()
         return instance
 
@@ -141,7 +138,7 @@ class LocationPermissionSerializer(serializers.Serializer):
         choices=['ALWAYS', 'WHILE_USING', 'DENIED'],
         required=True
     )
-    
+
     def validate(self, data):
         if data['location_permission_granted'] and data['location_permission_type'] == 'DENIED':
             raise serializers.ValidationError(
@@ -151,21 +148,20 @@ class LocationPermissionSerializer(serializers.Serializer):
 
 
 class NearbyUserSerializer(serializers.ModelSerializer):
-   
     current_location = PointSerializer()
     distance = serializers.FloatField(read_only=True)
     user_info = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = UserLocation
-        fields = [
+        fields = (
             'id',
             'current_location',
             'distance',
             'user_info',
             'last_location_update'
-        ]
-    
+        )
+
     def get_user_info(self, obj):
         user = obj.user
         return {
@@ -181,11 +177,11 @@ class NearbyUserSerializer(serializers.ModelSerializer):
 class ZoneMapSerializer(GeoFeatureModelSerializer):
     center_point = PointSerializer()
     user_count = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = ZoneMap
         geo_field = 'boundary'
-        fields = [
+        fields = (
             'id',
             'name',
             'university',
@@ -196,18 +192,18 @@ class ZoneMapSerializer(GeoFeatureModelSerializer):
             'max_capacity',
             'zone_type',
             'user_count',
-        ]
-    
+        )
+
     def get_user_count(self, obj):
         return obj.get_users_in_zone().count()
 
 
 class LocationHistorySerializer(serializers.ModelSerializer):
-     location = PointSerializer()
-    
-     class Meta:
+    location = PointSerializer()
+
+    class Meta:
         model = LocationHistory
-        fields = [
+        fields = (
             'id',
             'location',
             'trip',
@@ -216,8 +212,8 @@ class LocationHistorySerializer(serializers.ModelSerializer):
             'speed',
             'is_deviation',
             'deviation_distance'
-        ]
-        read_only_fields = ['recorded_at']
+        )
+        read_only_fields = ('recorded_at',)
 
 
 class LocationUpdateSerializer(serializers.Serializer):
@@ -241,73 +237,13 @@ class LocationUpdateSerializer(serializers.Serializer):
         required=False,
         allow_null=True
     )
-    
+
     def validate(self, data):
         latitude = data['latitude']
         longitude = data['longitude']
         if not (16 <= latitude <= 32 and 34 <= longitude <= 56):
             raise serializers.ValidationError(
-                 )
-        
+                "Location is outside the allowed area."
+            )
+
         return data
-class RideSerializer(serializers.ModelSerializer):
-    """
-    Serializer for the Ride model.
-    Used for creating (Share ride) and listing (Click map to view available rides) rides.
-    """
-    owner_username = serializers.CharField(source='owner.username', read_only=True)
-    available_seats = serializers.ReadOnlyField() 
-    
-    class Meta:
-        model = Ride
-        fields = [
-            'id', 
-            'owner',
-            'owner_username', 
-            'start_location', 
-            'end_location', 
-            'departure_time', 
-            'max_passengers', 
-            'is_active',
-            'available_seats']
-        read_only_fields = ['owner'] 
-
-    def validate_departure_time(self, value):
-        """Check that the departure time is not in the past."""
-        if value < timezone.now():
-            raise serializers.ValidationError("Departure time cannot be in the past.")
-        return value
-
-    def validate_max_passengers(self, value):
-        """Check that max passengers is a positive number."""
-        if value <= 0:
-            raise serializers.ValidationError("A ride must allow at least one passenger.")
-        return value
-
-class BookingSerializer(serializers.ModelSerializer):
-    """
-    Serializer for the Booking model.
-    Used when a user submits data via the 'Join ride' action.
-    """
-    passenger_username = serializers.CharField(source='passenger.username', read_only=True)
-    status_display = serializers.CharField(source='get_status_display', read_only=True)
-
-    class Meta:
-        model = Booking
-        fields = [
-            'id', 
-            'ride', 
-            'passenger', 
-            'passenger_username', 
-            'seats_requested', 
-            'status',
-            'status_display',
-            'booked_at'
-        ]
-        read_only_fields = ['passenger', 'ride', 'status'] 
-        
-    def validate_seats_requested(self, value):
-        """Check that the number of seats requested is valid."""
-        if value <= 0:
-            raise serializers.ValidationError("You must request at least one seat.")
-        return value

@@ -1,7 +1,10 @@
-// Interactive map component for ride tracking
+// Interactive map component for ride tracking using Leaflet
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, useMapEvents } from 'react-leaflet'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css' // IMPORTANT: Import Leaflet CSS
 
 interface MapViewProps {
   center?: { lat: number; lng: number }
@@ -15,170 +18,129 @@ interface MapViewProps {
   height?: string
 }
 
+// --- 1. Custom Icons ---
+// We convert your SVG strings into Leaflet Icons
+const createIcon = (url: string) =>
+  new L.Icon({
+    iconUrl: url,
+    iconSize: [40, 40],
+    iconAnchor: [20, 20], // Center the icon
+    popupAnchor: [0, -20],
+  })
+
+const ICONS = {
+  pickup: createIcon('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNSIgZmlsbD0iIzUwQzg3OCIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIzIi8+PHRleHQgeD0iMjAiIHk9IjI1IiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9IkFyaWFsIj5QPC90ZXh0Pjwvc3ZnPg=='),
+  dropoff: createIcon('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNSIgZmlsbD0iI0U3NGMzQyIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIzIi8+PHRleHQgeD0iMjAiIHk9IjI1IiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9IkFyaWFsIj5EPC90ZXh0Pjwvc3ZnPg=='),
+  driver: createIcon('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNSIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIzIi8+PHRleHQgeD0iMjAiIHk9IjI1IiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9IkFyaWFsIj7wn5qXPC90ZXh0Pjwvc3ZnPg=='),
+}
+
+// --- 2. Map Controller Component ---
+// Leaflet MapContainer props are immutable. We use this child component
+// to listen to props changes (like markers) and move the camera programmatically.
+function MapController({ center, markers }: { center: { lat: number; lng: number }, markers: MapViewProps['markers'] }) {
+  const map = useMap()
+
+  useEffect(() => {
+    if (markers && markers.length > 1) {
+      // Fit bounds if multiple markers exist
+      const bounds = L.latLngBounds(markers.map(m => [m.position.lat, m.position.lng]))
+      map.fitBounds(bounds, { padding: [50, 50] })
+    } else {
+      // Otherwise fly to center
+      map.flyTo([center.lat, center.lng], 13)
+    }
+  }, [center, markers, map])
+
+  return null
+}
+
+// --- 3. Location Selector Component ---
+// Handles clicks on the map to reverse geocode
+function LocationSelector({ onSelect }: { onSelect: MapViewProps['onLocationSelect'] }) {
+  useMapEvents({
+    click: async (e) => {
+      if (!onSelect) return
+      const { lat, lng } = e.latlng
+      
+      // Basic Nominatim Reverse Geocoding (Free, OpenStreetMap)
+      // Note: For production, consider using a dedicated geocoding service to avoid rate limits
+      try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+        const data = await response.json()
+        onSelect(lat, lng, data.display_name || 'Unknown Location')
+      } catch (error) {
+        onSelect(lat, lng)
+      }
+    },
+  })
+  return null
+}
+
 export default function MapView({
-  center = { lat: 24.7136, lng: 46.6753 }, // Riyadh default
+  center = { lat: 24.7136, lng: 46.6753 }, // Riyadh
   markers = [],
   showRoute = false,
   onLocationSelect,
   height = '400px',
 }: MapViewProps) {
-  const mapRef = useRef<HTMLDivElement>(null)
-  const [map, setMap] = useState<any>(null)
-  const [googleMaps, setGoogleMaps] = useState<any>(null)
+  
+  // Prepare route positions for the Polyline
+  const routePositions = useMemo(() => {
+    if (!showRoute || markers.length < 2) return []
+    // Sort markers or find specific pickup/dropoff logic here if needed.
+    // Currently connects them in order of the array.
+    return markers.map(m => [m.position.lat, m.position.lng] as [number, number])
+  }, [markers, showRoute])
 
-  useEffect(() => {
-    // Load Google Maps script
-    if (!window.google) {
-      const script = document.createElement('script')
-      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&libraries=places`
-      script.async = true
-      script.defer = true
-      script.onload = initializeMap
-      document.head.appendChild(script)
-    } else {
-      initializeMap()
-    }
-  }, [])
+  // Fix for Next.js Leaflet SSR issue (window is not defined)
+  const [isMounted, setIsMounted] = useState(false)
+  useEffect(() => { setIsMounted(true) }, [])
 
-  useEffect(() => {
-    if (map && googleMaps) {
-      updateMapMarkers()
-      if (showRoute && markers.length >= 2) {
-        drawRoute()
-      }
-    }
-  }, [markers, map, googleMaps, showRoute])
-
-  const initializeMap = () => {
-    if (!mapRef.current || !window.google) return
-
-    const google = window.google
-    setGoogleMaps(google)
-
-    const mapInstance = new google.maps.Map(mapRef.current, {
-      center,
-      zoom: 13,
-      styles: [
-        {
-          featureType: 'poi',
-          elementType: 'labels',
-          stylers: [{ visibility: 'off' }],
-        },
-      ],
-      mapTypeControl: false,
-      fullscreenControl: false,
-      streetViewControl: false,
-    })
-
-    if (onLocationSelect) {
-      mapInstance.addListener('click', async (e: any) => {
-        const lat = e.latLng.lat()
-        const lng = e.latLng.lng()
-
-        // Reverse geocode to get address
-        const geocoder = new google.maps.Geocoder()
-        geocoder.geocode({ location: { lat, lng } }, (results: any, status: any) => {
-          if (status === 'OK' && results[0]) {
-            onLocationSelect(lat, lng, results[0].formatted_address)
-          } else {
-            onLocationSelect(lat, lng)
-          }
-        })
-      })
-    }
-
-    setMap(mapInstance)
-  }
-
-  const updateMapMarkers = () => {
-    if (!map || !googleMaps) return
-
-    // Clear existing markers
-    const existingMarkers = (map as any).markers || []
-    existingMarkers.forEach((marker: any) => marker.setMap(null))
-
-    // Add new markers
-    const newMarkers = markers.map((markerData) => {
-      const icon = {
-        url: getMarkerIcon(markerData.type),
-        scaledSize: new googleMaps.maps.Size(40, 40),
-      }
-
-      const marker = new googleMaps.maps.Marker({
-        position: markerData.position,
-        map,
-        title: markerData.title,
-        icon,
-      })
-
-      return marker
-    })
-
-    ;(map as any).markers = newMarkers
-
-    // Fit bounds if multiple markers
-    if (markers.length > 1) {
-      const bounds = new googleMaps.maps.LatLngBounds()
-      markers.forEach((marker) => bounds.extend(marker.position))
-      map.fitBounds(bounds)
-    } else if (markers.length === 1) {
-      map.setCenter(markers[0].position)
-      map.setZoom(15)
-    }
-  }
-
-  const drawRoute = () => {
-    if (!map || !googleMaps || markers.length < 2) return
-
-    const directionsService = new googleMaps.maps.DirectionsService()
-    const directionsRenderer = new googleMaps.maps.DirectionsRenderer({
-      map,
-      suppressMarkers: true,
-      polylineOptions: {
-        strokeColor: '#4A90E2',
-        strokeWeight: 4,
-      },
-    })
-
-    const pickup = markers.find((m) => m.type === 'pickup')
-    const dropoff = markers.find((m) => m.type === 'dropoff')
-
-    if (pickup && dropoff) {
-      directionsService.route(
-        {
-          origin: pickup.position,
-          destination: dropoff.position,
-          travelMode: googleMaps.maps.TravelMode.DRIVING,
-        },
-        (result: any, status: any) => {
-          if (status === 'OK') {
-            directionsRenderer.setDirections(result)
-          }
-        }
-      )
-    }
-  }
-
-  const getMarkerIcon = (type: 'pickup' | 'dropoff' | 'driver') => {
-    const icons = {
-      pickup: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNSIgZmlsbD0iIzUwQzg3OCIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIzIi8+PHRleHQgeD0iMjAiIHk9IjI1IiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9IkFyaWFsIj5QPC90ZXh0Pjwvc3ZnPg==',
-      dropoff: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNSIgZmlsbD0iI0U3NGMzQyIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIzIi8+PHRleHQgeD0iMjAiIHk9IjI1IiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9IkFyaWFsIj5EPC90ZXh0Pjwvc3ZnPg==',
-      driver: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNSIgZmlsbD0iIzRBOTBFMiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIzIi8+PHRleHQgeD0iMjAiIHk9IjI1IiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9IkFyaWFsIj7wn5qXPC90ZXh0Pjwvc3ZnPg==',
-    }
-    return icons[type]
+  if (!isMounted) {
+    return (
+      <div className="w-full bg-gray-100 flex items-center justify-center text-gray-500" style={{ height }}>
+        Loading Map...
+      </div>
+    )
   }
 
   return (
     <div className="relative w-full rounded-lg overflow-hidden border border-gray-300">
-      <div ref={mapRef} style={{ width: '100%', height }} />
-      {!map && (
-        <div
-          className="absolute inset-0 flex items-center justify-center bg-gray-100"
-          style={{ height }}
-        >
-          <div className="text-secondary">Loading map...</div>
-        </div>
-      )}
+      <MapContainer
+        center={[center.lat, center.lng]}
+        zoom={13}
+        style={{ height, width: '100%' }}
+        scrollWheelZoom={true} // Enable zoom on scroll
+      >
+        {/* OpenStreetMap Tile Layer (Free) */}
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+
+        {/* Handlers for map movement and clicks */}
+        <MapController center={center} markers={markers} />
+        {onLocationSelect && <LocationSelector onSelect={onLocationSelect} />}
+
+        {/* Render Markers */}
+        {markers.map((marker, idx) => (
+          <Marker
+            key={`${marker.type}-${idx}`}
+            position={[marker.position.lat, marker.position.lng]}
+            icon={ICONS[marker.type]}
+          >
+            <Popup>{marker.title}</Popup>
+          </Marker>
+        ))}
+
+        {/* Render Route Line */}
+        {showRoute && routePositions.length > 1 && (
+          <Polyline
+            positions={routePositions}
+            pathOptions={{ color: '#4A90E2', weight: 4, dashArray: '10, 10' }} // Dashed line to indicate straight path
+          />
+        )}
+      </MapContainer>
     </div>
   )
 }

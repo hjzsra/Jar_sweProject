@@ -105,38 +105,39 @@ model User {
 
 // Driver model - can be student or non-student
 model Driver {
-  id                String   @id @default(cuid())
-  email             String?  @unique
-  phone             String?  @unique
-  password          String
-  firstName         String
-  lastName          String
-  gender            String
-  licenseNumber     String   @unique
-  licenseVerified   Boolean  @default(false)
-  isStudent         Boolean  @default(false)
-  university        String?
-  carModel          String
-  carColor          String
-  carPlateNumber    String
-  
-  // Add these fields:
-  currentLatitude   Float?
-  currentLongitude  Float?
-  isAvailable       Boolean  @default(false)
-  
-  averageRating     Float    @default(0)
-  totalRatings      Int      @default(0)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id              String  @id @default(cuid())
+  email           String? @unique
+  phone           String? @unique
+  password        String
+  firstName       String
+  lastName        String
+  gender          String
+  licenseNumber   String  @unique
+  licenseVerified Boolean @default(false)
+  isStudent       Boolean @default(false)
+  university      String?
+  carModel        String
+  carColor        String
+  carPlateNumber  String
 
-  rides             Ride[]
-  ratings           Rating[]
-  chatMessages      ChatMessage[]
-  location          DriverLocation?
-  rideRequests      RideRequest[]
-  payouts           Payout[]
+  // Add these fields:
+  currentLatitude  Float?
+  currentLongitude Float?
+  isAvailable      Boolean @default(false)
+
+  averageRating Float    @default(0)
+  totalRatings  Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  rides        Ride[]
+  ratings      Rating[]
+  chatMessages ChatMessage[]
+  location     DriverLocation?
+  rideRequests RideRequest[]
+  payouts      Payout[]
 }
+
 // Latest driver location (separate table for geospatial indexing and history potential)
 model DriverLocation {
   driverId  String   @id

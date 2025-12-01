@@ -3,11 +3,16 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import AuthGuard from '@/components/AuthGuard'
-import MapView from '@/components/MapView'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
 import api from '@/lib/api'
 import toast from 'react-hot-toast'
+
+const MapView = dynamic(() => import('@/components/MapView'), {
+  ssr: false,
+  loading: () => <div className="h-[500px] bg-gray-200 animate-pulse rounded-lg flex items-center justify-center">Loading map...</div>
+})
 
 export default function BookRide() {
   const router = useRouter()

@@ -31,16 +31,16 @@ export async function GET(request: NextRequest) {
       prisma.ride.count({
         where: {
           status: {
-            in: ['pending', 'accepted', 'driver_arrived', 'in_progress'],
+            in: ['PENDING', 'ACCEPTED', 'DRIVER_ARRIVED', 'IN_PROGRESS'],
           },
         },
       }),
       prisma.ride.aggregate({
-        where: { status: 'completed', paymentStatus: 'completed' },
+        where: { status: 'COMPLETED', paymentStatus: 'PAID' },
         _sum: { cost: true },
       }),
       prisma.supportTicket.count({
-        where: { status: 'open' },
+        where: { status: 'OPEN' },
       }),
     ])
 
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
         totalDrivers,
         totalRides,
         activeRides,
-        totalRevenue: totalRevenue._sum.cost || 0,
+        totalRevenue: totalRevenue._sum?.cost || 0,
         openSupportTickets: supportTickets,
       },
       recentRides,

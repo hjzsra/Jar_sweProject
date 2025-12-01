@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     const updatedRide = await prisma.ride.update({
       where: { id: rideId },
       data: {
-        status: 'rejected',
+        status: 'REJECTED',
         rejectionReason: reason || 'Driver rejected the ride',
       },
     })

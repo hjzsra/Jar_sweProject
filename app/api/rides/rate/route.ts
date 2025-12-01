@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    if (ride.status !== 'completed') {
+    if (ride.status !== 'COMPLETED') {
       return NextResponse.json(
         { error: 'Can only rate completed rides' },
         { status: 400 }

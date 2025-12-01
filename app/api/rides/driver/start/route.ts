@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    if (ride.status !== 'driver_arrived') {
+    if (ride.status !== 'DRIVER_ARRIVED') {
       return NextResponse.json(
         { error: 'Driver must arrive first' },
         { status: 400 }
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     const updatedRide = await prisma.ride.update({
       where: { id: rideId },
       data: {
-        status: 'in_progress',
+        status: 'IN_PROGRESS',
         tripStartedAt: new Date(),
       },
     })

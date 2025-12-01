@@ -2,6 +2,7 @@
 // Allows users to create a ride request (immediate or pre-booked)
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { verifyToken } from '@/lib/auth'
 import { calculateDistance } from '@/lib/utils'
 
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = verifyToken(token)
-    if (!payload || payload.role !== 'user') {
+    if (!payload || !payload.userId || payload.role !== 'user') {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -102,11 +103,18 @@ export async function POST(request: NextRequest) {
     // For now, costPerPassenger equals baseCost (single passenger)
     const costPerPassenger = baseCost
 
+
+    const paymentMethodUpper = paymentMethod.toUpperCase().replace(' ', '_');
+
     // Create ride
     const ride = await prisma.ride.create({
       data: {
-        driverId,
-        passengerId: payload.userId,
+        driver: {
+          connect: { id: driverId },
+        },
+        passenger: {
+          connect: { id: payload.userId },
+        },
         pickupLatitude,
         pickupLongitude,
         dropoffLatitude,
@@ -115,10 +123,17 @@ export async function POST(request: NextRequest) {
         dropoffAddress,
         scheduledTime: isPreBooked && scheduledTime ? new Date(scheduledTime) : null,
         isPreBooked: isPreBooked || false,
-        paymentMethod,
+        paymentMethod: paymentMethodUpper as any,
         cost: baseCost,
         costPerPassenger,
-        status: 'pending',
+      },
+    })
+
+    // Create a ride request for the driver
+    await prisma.rideRequest.create({
+      data: {
+        rideId: ride.id,
+        driverId,
       },
     })
 
@@ -127,6 +142,15 @@ export async function POST(request: NextRequest) {
       ride,
     })
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientValidationError) {
+      return NextResponse.json(
+        {
+          error: 'Invalid data provided.',
+          details: error.message,
+        },
+        { status: 400 }
+      )
+    }
     console.error('Create ride error:', error)
     return NextResponse.json(
       { error: 'Failed to create ride' },
@@ -134,4 +158,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

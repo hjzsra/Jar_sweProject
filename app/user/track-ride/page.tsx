@@ -99,16 +99,20 @@ export default function TrackRide() {
     )
   }
 
-  const markers = [
+  const markers: Array<{
+    position: { lat: number; lng: number };
+    title: string;
+    type: 'pickup' | 'dropoff' | 'driver';
+  }> = [
     {
       position: { lat: ride.pickupLatitude, lng: ride.pickupLongitude },
       title: 'Pickup',
-      type: 'pickup' as const,
+      type: 'pickup',
     },
     {
       position: { lat: ride.dropoffLatitude, lng: ride.dropoffLongitude },
       title: 'Dropoff',
-      type: 'dropoff' as const,
+      type: 'dropoff',
     },
   ]
 
