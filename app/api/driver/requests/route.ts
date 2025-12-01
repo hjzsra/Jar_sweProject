@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { verifyToken } from '@/lib/auth'
 import { calculateDistance } from '@/lib/utils'
 
+
 export async function GET(request: NextRequest) {
   try {
     const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest) {
 
     // Filter by distance
     const nearbyRequests = pendingRides
-      .map((ride) => {
+      .map((ride:any) => {
         const distance = calculateDistance(
           driver.currentLatitude!,
           driver.currentLongitude!,
