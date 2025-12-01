@@ -16,7 +16,7 @@ class RideSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Ride
-        fields = (
+        fields = [
             'id',
             'owner',
             'owner_username',
@@ -26,8 +26,8 @@ class RideSerializer(serializers.ModelSerializer):
             'max_passengers',
             'is_active',
             'available_seats'
-        )
-        read_only_fields = ('owner',)
+        ]
+        read_only_fields = ['owner']
 
     def validate_departure_time(self, value):
         """Check that the departure time is not in the past."""
@@ -55,7 +55,7 @@ class BookingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Booking
-        fields = (
+        fields = [
             'id',
             'ride',
             'passenger',
@@ -67,8 +67,8 @@ class BookingSerializer(serializers.ModelSerializer):
             'ride_start_location',
             'ride_end_location',
             'ride_departure_time',
-        )
-        read_only_fields = ('passenger', 'ride', 'status',)
+        ]
+        read_only_fields = ['passenger', 'ride', 'status']
 
     def validate_seats_requested(self, value):
         """Check that the number of seats requested is valid."""
@@ -103,7 +103,7 @@ class UserLocationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserLocation
-        fields = (
+        fields = [
             'id',
             'user',
             'current_location',
@@ -116,8 +116,8 @@ class UserLocationSerializer(serializers.ModelSerializer):
             'city',
             'zone_name',
             'distance',
-        )
-        read_only_fields = ('user', 'last_location_update',)
+        ]
+        read_only_fields = ['user', 'last_location_update']
 
     def update(self, instance, validated_data):
         location_data = validated_data.pop('current_location', None)
@@ -154,13 +154,13 @@ class NearbyUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserLocation
-        fields = (
+        fields = [
             'id',
             'current_location',
             'distance',
             'user_info',
             'last_location_update'
-        )
+        ]
 
     def get_user_info(self, obj):
         user = obj.user
@@ -181,7 +181,7 @@ class ZoneMapSerializer(GeoFeatureModelSerializer):
     class Meta:
         model = ZoneMap
         geo_field = 'boundary'
-        fields = (
+        fields = [
             'id',
             'name',
             'university',
@@ -192,7 +192,7 @@ class ZoneMapSerializer(GeoFeatureModelSerializer):
             'max_capacity',
             'zone_type',
             'user_count',
-        )
+        ]
 
     def get_user_count(self, obj):
         return obj.get_users_in_zone().count()
@@ -203,7 +203,7 @@ class LocationHistorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = LocationHistory
-        fields = (
+        fields = [
             'id',
             'location',
             'trip',
@@ -212,8 +212,8 @@ class LocationHistorySerializer(serializers.ModelSerializer):
             'speed',
             'is_deviation',
             'deviation_distance'
-        )
-        read_only_fields = ('recorded_at',)
+        ]
+        read_only_fields = ['recorded_at']
 
 
 class LocationUpdateSerializer(serializers.Serializer):

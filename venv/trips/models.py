@@ -3,10 +3,12 @@ from django.conf import settings
 from django.contrib.gis.db import models as gis_models
 from django.contrib.gis.geos import Point
 from django.db.models import QuerySet, Manager
+from django.contrib.auth.models import User
 
 
+User = settings.AUTH_USER_MODEL
 class UserLocation(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='location')
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='location')
 
     current_location = gis_models.PointField(
         geography=True,
@@ -49,7 +51,7 @@ class UserLocation(models.Model):
         models.Index(fields=['last_location_update']),
         ]
     def __str__(self) -> str:
-        return f"{self.user} - {self.current_location}"
+        return f"{self.user.email} - {self.current_location}"
 
     def update_location(self, latitude: float, longitude: float, accuracy: float | None = None) -> None:
         """Update user's current location"""
@@ -80,14 +82,14 @@ class UserLocation(models.Model):
 class ZoneMap(models.Model):
     name = models.CharField(max_length=200)
     university = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        User,
         on_delete=models.CASCADE,
         related_name='zones'
     )
     boundary = gis_models.PolygonField()
 
     def __str__(self) -> str:
-        return f"{self.name} - {self.university}"
+        return f"{self.name} - {self.university.username}"
     
     def is_point_in_zone(self, point: Point) -> bool:
         return self.boundary.contains(point)
@@ -138,16 +140,16 @@ class LocationHistory(models.Model):
         ordering = ['-recorded_at']
     
         def __str__(self) -> str:
-            return f"{self.user} at {self.recorded_at}"
+            return f"{self.user.email} at {self.recorded_at}"
 
 
 class Trip(models.Model):
     passenger = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='trips_as_passenger'
+        User, on_delete=models.CASCADE, related_name='trips_as_passenger'
     )
     
     driver = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        User,
         on_delete=models.SET_NULL,
         null=True,
         related_name='driver_trips'
@@ -184,12 +186,12 @@ class Trip(models.Model):
         db_table = 'trips'
     
     def __str__(self) -> str:
-        return f"Trip #{self.id} - {self.passenger}"
+        return f"Trip #{self.id} - {self.passenger.email}"
 
 class Ride(models.Model):
     """Represents a carpool ride offered by a driver."""
     driver = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        User,
         on_delete=models.SET_NULL,
         null=True,
         related_name='driver_rides'
@@ -229,7 +231,7 @@ class Ride(models.Model):
         db_table = 'rides'
     
     def __str__(self) -> str:
-        return f"Ride #{self.id} by {self.driver if self.driver else 'N/A'}"
+        return f"Ride #{self.id} by {self.driver.email if self.driver else 'N/A'}"
 
     @property
     def available_seats(self) -> int:
@@ -250,7 +252,7 @@ class Booking(models.Model):
         ('CANCELLED', 'Cancelled'),
     ]
     ride = models.ForeignKey(Ride, related_name='bookings', on_delete=models.CASCADE)
-    passenger = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='my_bookings', on_delete=models.CASCADE)
+    passenger = models.ForeignKey(User, related_name='my_bookings', on_delete=models.CASCADE)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDING')
     seats_requested = models.IntegerField(default=1)
     booked_at = models.DateTimeField(auto_now_add=True)
@@ -259,4 +261,4 @@ class Booking(models.Model):
         unique_together = ('ride', 'passenger')
     
     def __str__(self) -> str:
-        return f"Booking by {self.passenger} for {self.ride}"
+        return f"Booking by {self.passenger.username} for {self.ride}"

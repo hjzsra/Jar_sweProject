@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyToken } from '@/lib/auth'
+import { TransactionSource, TransactionType } from '@prisma/client'
 
 // Get wallet balance and recent transactions
 export async function GET(request: NextRequest) {
@@ -32,6 +33,10 @@ export async function GET(request: NextRequest) {
 
     // If wallet doesn't exist, create it
     if (!wallet) {
+      // Add a guard to ensure userId is present
+      if (!payload.userId) {
+        return NextResponse.json({ error: 'Invalid token payload' }, { status: 401 })
+      }
       console.log('📝 Creating new wallet for user')
       wallet = await prisma.wallet.create({
         data: {
@@ -54,7 +59,7 @@ export async function GET(request: NextRequest) {
       balance: balanceInSAR,
       balanceInCents: wallet.balance,
       currency: wallet.currency,
-      transactions: wallet.txns.map(txn => ({
+      transactions: wallet.txns.map((txn) => ({
         id: txn.id,
         type: txn.type,
         source: txn.source,
@@ -87,11 +92,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { amount, paymentMethod, referenceId } = body
 
-    console.log('💳 Add funds request:', { 
-      userId: payload.userId, 
-      amount, 
+    console.log('💳 Add funds request:', {
+      userId: payload.userId,
+      amount,
       paymentMethod,
-      referenceId 
+      referenceId,
     })
 
     // Validate amount
@@ -121,6 +126,10 @@ export async function POST(request: NextRequest) {
     })
 
     if (!wallet) {
+      // Add a guard to ensure userId is present
+      if (!payload.userId) {
+        return NextResponse.json({ error: 'Invalid token payload' }, { status: 401 })
+      }
       console.log('📝 Creating new wallet for user')
       wallet = await prisma.wallet.create({
         data: {
