@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if ride is accepted
-    if (ride.status !== 'accepted') {
+    if (ride.status !== 'ACCEPTED') {
       return NextResponse.json(
         { error: 'Ride must be accepted first' },
         { status: 400 }
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     const updatedRide = await prisma.ride.update({
       where: { id: rideId },
       data: {
-        status: 'driver_arrived',
+        status: 'DRIVER_ARRIVED',
         driverArrivedAt: new Date(),
       },
     })

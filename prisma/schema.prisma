@@ -18,6 +18,7 @@ enum UserRole {
 }
 
 enum RideStatus {
+  REQUESTED
   PENDING
   ACCEPTED
   DRIVER_ARRIVED
@@ -25,11 +26,13 @@ enum RideStatus {
   COMPLETED
   CANCELLED
   REJECTED
+  EXPIRED
 }
 
 enum PaymentMethod {
   CASH
   APPLE_PAY
+  BANK_TRANSFER
 }
 
 enum PaymentStatus {
@@ -71,141 +74,213 @@ enum TicketStatus {
   CLOSED
 }
 
+enum CancellationReason {
+  // Driver cancellation reasons
+  TRAFFIC_CONGESTION
+  VEHICLE_ISSUE
+  PERSONAL_EMERGENCY
+  OTHER_DRIVER
+
+  // Student cancellation reasons
+  DRIVER_TOO_FAR
+  DRIVER_LATE
+  DRIVER_NOT_RESPONDING
+  CHANGE_OF_PLANS
+  OTHER_STUDENT
+}
+
 // User model - represents students who can be passengers
 model User {
   id            String    @id @default(cuid())
   role          UserRole  @default(USER)
-  email         String    @unique // University email
+  email         String    @unique
   emailVerified Boolean   @default(false)
-  // Keep OTP auth facts separated in OtpCode; retain optional fields if used by code paths
   otpCode       String?
   otpExpires    DateTime?
   password      String
   firstName     String
   lastName      String
   phone         String
-  gender        String    // "male" or "female"
+  gender        String
   university    String
-  walletBalance Float     @default(0.0)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
-  
-  // Relations
-  ridesAsPassenger Ride[] @relation("PassengerRides")
+
+  ridesAsPassenger Ride[]           @relation("RidePassengers")
   ratings          Rating[]
   chatMessages     ChatMessage[]
   wallet           Wallet?
   supportTickets   SupportTicket[]
   otpCodes         OtpCode[]
-  chatThreadsA     ChatThread[] @relation("ThreadA")
-  chatThreadsB     ChatThread[] @relation("ThreadB")
-  
+  chatThreadsA     ChatThread[]     @relation("ThreadA")
+  chatThreadsB     ChatThread[]     @relation("ThreadB")
+  supportMessages  SupportMessage[]
+  documents        DocumentVerification[]
+  reportsMade      SafetyReport[]   @relation("ReporterReports")
+  reportsReceived  SafetyReport[]   @relation("ReportedUser")
+  sosLogs          SOSSLog[]
+  bans             UserBan[]
+
   @@index([role])
   @@map("users")
 }
 
 // Driver model - can be student or non-student
 model Driver {
-  id                String    @id @default(cuid())
-  email             String?   @unique // University email if student, or regular email
-  phone             String?   @unique // Phone number if not student
-  password          String
-  firstName         String
-  lastName          String
-  gender            String    // "male" or "female"
-  licenseNumber     String    @unique
-  licenseVerified   Boolean   @default(false) // Verified through Ministry of Transport
-  isStudent         Boolean   @default(false)
-  university        String?
-  carModel          String
-  carColor          String
-  carPlateNumber    String
-  // Move live location to DriverLocation
-  isAvailable       Boolean   @default(false)
-  averageRating     Float     @default(0.0)
-  totalRatings      Int       @default(0)
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  
-  // Relations
-  rides             Ride[]
-  ratings           Rating[]
-  chatMessages      ChatMessage[]
-  location          DriverLocation?
-  rideRequests      RideRequest[]
-  payouts           Payout[]
-  
-  @@map("drivers")
+  id              String  @id @default(cuid())
+  email           String? @unique
+  phone           String? @unique
+  password        String
+  firstName       String
+  lastName        String
+  gender          String
+  licenseNumber   String  @unique
+  licenseVerified Boolean @default(false)
+  isStudent       Boolean @default(false)
+  university      String?
+  emailVerified   Boolean @default(false)
+
+  // Background check fields
+  backgroundCheckStatus String   @default("pending") // 'pending', 'approved', 'rejected'
+  backgroundCheckDate   DateTime?
+  backgroundCheckNotes  String?
+
+  // Add these fields:
+  currentLatitude  Float?
+  currentLongitude Float?
+  isAvailable      Boolean @default(false)
+
+  averageRating Float    @default(0)
+  totalRatings  Int      @default(0)
+
+  // Driver earnings and penalties
+  totalEarnings    Int @default(0) // Total earnings in cents
+  availableBalance Int @default(0) // Available for payout in cents
+  totalPenalties   Int @default(0) // Total penalties in cents
+  cancellationCount Int @default(0) // Number of ride cancellations
+  lastCancellation DateTime? // Last cancellation timestamp
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  rides        Ride[]
+  ratings      Rating[]
+  chatMessages ChatMessage[]
+  location     DriverLocation?
+  rideRequests RideRequest[]
+  payouts      Payout[]
+  documents    DocumentVerification[]
+  vehicles     Vehicle[]
+}
+
+// Vehicle model for proper vehicle management
+model Vehicle {
+  id              String   @id @default(cuid())
+  driverId        String
+  make            String   // e.g., Toyota
+  model           String   // e.g., Camry
+  year            Int
+  color           String
+  licensePlate    String   @unique
+  insuranceNumber String?
+  insuranceExpiry DateTime?
+  inspectionDate  DateTime?
+  inspectionExpiry DateTime?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  driver Driver @relation(fields: [driverId], references: [id])
+
+  @@map("vehicles")
 }
 
 // Latest driver location (separate table for geospatial indexing and history potential)
 model DriverLocation {
-  driverId  String  @id
+  driverId  String   @id
   lat       Float
   lng       Float
   heading   Float?
   speed     Float?
   updatedAt DateTime @updatedAt
 
-  driver    Driver  @relation(fields: [driverId], references: [id])
+  driver Driver @relation(fields: [driverId], references: [id])
 
   @@map("driver_locations")
 }
 
 // Ride model - represents a ride booking
 model Ride {
-  id                String        @id @default(cuid())
-  driverId          String
-  passengerId       String
-  pickupLatitude    Float
-  pickupLongitude   Float
-  dropoffLatitude   Float
-  dropoffLongitude  Float
-  pickupAddress     String
-  dropoffAddress    String
-  scheduledTime     DateTime?     // For pre-booked rides
-  isPreBooked       Boolean       @default(false)
-  status            RideStatus    @default(PENDING)
-  rejectionReason   String?
-  cost              Float
-  costPerPassenger  Float         // Split cost equally
-  paymentMethod     PaymentMethod // "cash" or "apple_pay"
-  paymentStatus     PaymentStatus @default(PENDING)
-  driverArrivedAt   DateTime?
-  tripStartedAt     DateTime?
-  tripEndedAt       DateTime?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  
-  // Relations
-  driver            Driver        @relation(fields: [driverId], references: [id])
-  passenger         User          @relation("PassengerRides", fields: [passengerId], references: [id])
-  ratings           Rating[]
-  chatMessages      ChatMessage[]
-  requests          RideRequest[]
-  events            RideEvent[]
-  
+  id               String        @id @default(cuid())
+  driverId         String?
+  pickupLatitude   Float
+  pickupLongitude  Float
+  dropoffLatitude  Float
+  dropoffLongitude Float
+  pickupAddress    String
+  dropoffAddress   String
+  scheduledTime    DateTime?
+  isPreBooked      Boolean       @default(false)
+  status           RideStatus    @default(PENDING)
+  rejectionReason  String?
+  cancellationReason CancellationReason?
+  cost             Float
+  costPerPassenger Float
+  paymentMethod    PaymentMethod
+  paymentStatus    PaymentStatus @default(PENDING)
+  driverArrivedAt  DateTime?
+  tripStartedAt    DateTime?
+  tripEndedAt      DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  driver       Driver?       @relation(fields: [driverId], references: [id])
+  passengers   User[]        @relation("RidePassengers")
+  ratings      Rating[]
+  chatMessages ChatMessage[]
+  requests     RideRequest[]
+  events       RideEvent[]
+  locations    RideLocation[]
+  chatThreads  ChatThread[] // 🔥 FIX ADDED HERE
+  safetyReports SafetyReport[]
+  sosLogs      SOSSLog[]
+
   @@index([driverId])
-  @@index([passengerId])
   @@index([status])
   @@map("rides")
 }
 
 // Request offers to drivers for a ride
 model RideRequest {
-  id            String        @id @default(cuid())
-  rideId        String
-  driverId      String
-  status        RequestStatus @default(PENDING)
-  createdAt     DateTime      @default(now())
-  respondedAt   DateTime?
+  id          String        @id @default(cuid())
+  rideId      String
+  driverId    String
+  status      RequestStatus @default(PENDING)
+  createdAt   DateTime      @default(now())
+  respondedAt DateTime?
 
-  ride          Ride          @relation(fields: [rideId], references: [id])
-  driver        Driver        @relation(fields: [driverId], references: [id])
+  ride   Ride   @relation(fields: [rideId], references: [id])
+  driver Driver @relation(fields: [driverId], references: [id])
 
   @@unique([rideId, driverId])
   @@index([status])
   @@map("ride_requests")
+}
+
+// GPS tracking for active rides
+model RideLocation {
+  id        String   @id @default(cuid())
+  rideId    String
+  latitude  Float
+  longitude Float
+  heading   Float?
+  speed     Float?
+  timestamp DateTime @default(now())
+
+  ride Ride @relation(fields: [rideId], references: [id])
+
+  @@index([rideId, timestamp])
+  @@map("ride_locations")
 }
 
 // Event log for rides
@@ -216,7 +291,7 @@ model RideEvent {
   metadata  Json?
   createdAt DateTime @default(now())
 
-  ride      Ride     @relation(fields: [rideId], references: [id])
+  ride Ride @relation(fields: [rideId], references: [id])
 
   @@index([rideId])
   @@map("ride_events")
@@ -228,15 +303,15 @@ model Rating {
   rideId       String
   userId       String
   driverId     String
-  rideRating   Int      // 1-5 stars
-  driverRating Int      // 1-5 stars
+  rideRating   Int // 1-5 stars
+  driverRating Int // 1-5 stars
   comment      String?
   createdAt    DateTime @default(now())
-  
+
   // Relations
-  ride         Ride     @relation(fields: [rideId], references: [id])
-  user         User     @relation(fields: [userId], references: [id])
-  driver       Driver   @relation(fields: [driverId], references: [id])
+  ride   Ride   @relation(fields: [rideId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+  driver Driver @relation(fields: [driverId], references: [id])
 
   @@unique([rideId, userId])
   @@map("ratings")
@@ -251,23 +326,23 @@ model Wallet {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user      User     @relation(fields: [userId], references: [id])
-  txns      WalletTransaction[]
+  user User                @relation(fields: [userId], references: [id])
+  txns WalletTransaction[]
 
   @@map("wallets")
 }
 
 model WalletTransaction {
-  id           String            @id @default(cuid())
-  walletId     String
-  type         TransactionType
-  source       TransactionSource
-  amount       Int               // cents
-  currency     String
-  referenceId  String?
-  createdAt    DateTime          @default(now())
+  id          String            @id @default(cuid())
+  walletId    String
+  type        TransactionType
+  source      TransactionSource
+  amount      Int // cents
+  currency    String
+  referenceId String?
+  createdAt   DateTime          @default(now())
 
-  wallet       Wallet            @relation(fields: [walletId], references: [id])
+  wallet Wallet @relation(fields: [walletId], references: [id])
 
   @@index([walletId, createdAt])
   @@map("wallet_transactions")
@@ -275,31 +350,31 @@ model WalletTransaction {
 
 // Optional payouts for drivers
 model Payout {
-  id           String   @id @default(cuid())
-  driverId     String
-  amount       Int
-  currency     String   @default("USD")
-  status       String   @default("REQUESTED")
-  requestedAt  DateTime @default(now())
-  processedAt  DateTime?
+  id          String    @id @default(cuid())
+  driverId    String
+  amount      Int
+  currency    String    @default("USD")
+  status      String    @default("REQUESTED")
+  requestedAt DateTime  @default(now())
+  processedAt DateTime?
 
-  driver       Driver   @relation(fields: [driverId], references: [id])
+  driver Driver @relation(fields: [driverId], references: [id])
 
   @@map("payouts")
 }
 
 // Chat threads and messages
 model ChatThread {
-  id          String   @id @default(cuid())
-  rideId      String?
+  id             String   @id @default(cuid())
+  rideId         String?
   participantAId String
   participantBId String
-  createdAt   DateTime @default(now())
+  createdAt      DateTime @default(now())
 
-  ride        Ride?    @relation(fields: [rideId], references: [id])
-  participantA User    @relation("ThreadA", fields: [participantAId], references: [id])
-  participantB User    @relation("ThreadB", fields: [participantBId], references: [id])
-  messages    ChatMessage[]
+  ride         Ride?         @relation(fields: [rideId], references: [id])
+  participantA User          @relation("ThreadA", fields: [participantAId], references: [id])
+  participantB User          @relation("ThreadB", fields: [participantBId], references: [id])
+  messages     ChatMessage[]
 
   @@unique([rideId, participantAId, participantBId])
   @@map("chat_threads")
@@ -315,25 +390,27 @@ model ChatMessage {
   message   String
   createdAt DateTime    @default(now())
   readAt    DateTime?
-  
+
   // Relations
-  thread   ChatThread? @relation(fields: [threadId], references: [id])
-  ride     Ride        @relation(fields: [rideId], references: [id])
-  user     User?       @relation(fields: [userId], references: [id])
-  driver   Driver?     @relation(fields: [driverId], references: [id])
-  
+  thread ChatThread? @relation(fields: [threadId], references: [id])
+  ride   Ride        @relation(fields: [rideId], references: [id])
+  user   User?       @relation(fields: [userId], references: [id])
+  driver Driver?     @relation(fields: [driverId], references: [id])
+
   @@index([threadId])
   @@map("chat_messages")
 }
 
 // Admin model - for website administrators
 model Admin {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  name      String
-  createdAt DateTime @default(now())
-  
+  id               String   @id @default(cuid())
+  email            String   @unique
+  password         String
+  name             String
+  securityQuestion String?
+  securityAnswer   String?
+  createdAt        DateTime @default(now())
+
   @@map("admins")
 }
 
@@ -348,22 +425,22 @@ model SupportTicket {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  user      User?        @relation(fields: [userId], references: [id])
-  messages  SupportMessage[]
-  
+  user     User?            @relation(fields: [userId], references: [id])
+  messages SupportMessage[]
+
   @@index([userId, status])
   @@map("support_tickets")
 }
 
 model SupportMessage {
-  id         String   @id @default(cuid())
-  ticketId   String
-  senderId   String?
-  message    String
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  ticketId  String
+  senderId  String?
+  message   String
+  createdAt DateTime @default(now())
 
-  ticket     SupportTicket @relation(fields: [ticketId], references: [id])
-  sender     User?         @relation(fields: [senderId], references: [id])
+  ticket SupportTicket @relation(fields: [ticketId], references: [id])
+  sender User?         @relation(fields: [senderId], references: [id])
 
   @@index([ticketId])
   @@map("support_messages")
@@ -371,19 +448,122 @@ model SupportMessage {
 
 // OTP Codes separated from User for better security rotation and auditing
 model OtpCode {
-  id         String   @id @default(cuid())
-  userId     String?
+  id          String    @id @default(cuid())
+  userId      String?
   destination String
-  code       String
-  purpose    String
-  expiresAt  DateTime
-  consumedAt DateTime?
-  createdAt  DateTime @default(now())
+  code        String
+  purpose     String
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime  @default(now())
 
-  user       User?    @relation(fields: [userId], references: [id])
+  user User? @relation(fields: [userId], references: [id])
 
   @@index([destination])
   @@index([userId])
   @@map("otp_codes")
 }
 
+// Password reset tokens
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  role      UserRole // USER, DRIVER, ADMIN
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([token])
+  @@map("password_reset_tokens")
+}
+
+// Document verification for drivers and students
+model DocumentVerification {
+  id          String   @id @default(cuid())
+  userId      String?  // For students
+  driverId    String?  // For drivers
+  documentType String  // 'university_id', 'drivers_license'
+  fileUrl     String
+  status      String   @default("pending") // 'pending', 'approved', 'rejected'
+  reviewedBy  String?  // Admin ID who reviewed
+  reviewedAt  DateTime?
+  rejectionReason String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user   User?   @relation(fields: [userId], references: [id])
+  driver Driver? @relation(fields: [driverId], references: [id])
+
+  @@index([userId])
+  @@index([driverId])
+  @@index([status])
+  @@map("document_verifications")
+}
+
+// Safety reports and user management
+model SafetyReport {
+  id          String   @id @default(cuid())
+  reporterId  String   // User who reported
+  reportedId  String   // User/driver being reported
+  rideId      String?  // Associated ride if applicable
+  reportType  String   // 'reckless_driving', 'harassment', 'other'
+  description String
+  status      String   @default("pending") // 'pending', 'investigating', 'resolved', 'dismissed'
+  adminAction String?  // 'warning', 'ban', 'none'
+  adminNotes  String?
+  reviewedBy  String?  // Admin ID
+  reviewedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  reporter User   @relation("ReporterReports", fields: [reporterId], references: [id])
+  reported User   @relation("ReportedUser", fields: [reportedId], references: [id])
+  ride     Ride?  @relation(fields: [rideId], references: [id])
+
+  @@index([reporterId])
+  @@index([reportedId])
+  @@index([status])
+  @@map("safety_reports")
+}
+
+// SOS emergency logs
+model SOSSLog {
+  id        String   @id @default(cuid())
+  userId    String   // User who pressed SOS
+  rideId    String   // Current ride
+  latitude  Float?
+  longitude Float?
+  message   String?  // Optional message from user
+  status    String   @default("active") // 'active', 'resolved', 'false_alarm'
+  resolvedBy String? // Admin who resolved
+  resolvedAt DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  ride Ride @relation(fields: [rideId], references: [id])
+
+  @@index([userId])
+  @@index([rideId])
+  @@index([status])
+  @@map("sos_logs")
+}
+
+// User bans and warnings
+model UserBan {
+  id          String   @id @default(cuid())
+  userId      String
+  banType     String   // 'warning', 'temporary_ban', 'permanent_ban'
+  reason      String
+  bannedBy    String   // Admin ID
+  expiresAt   DateTime? // For temporary bans
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([isActive])
+  @@map("user_bans")
+}

@@ -4,8 +4,8 @@ import './globals.css'
 import { Toaster } from 'react-hot-toast'
 
 export const metadata: Metadata = {
-  title: 'Student Ride Sharing',
-  description: 'A minimalist ride-sharing platform for students',
+  title: 'JAR - Just A SafeRide',
+  description: 'A safe and secure ride-sharing platform for students',
 }
 
 export default function RootLayout({

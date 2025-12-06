@@ -18,9 +18,6 @@ export default function DriverRegister() {
     licenseNumber: '',
     isStudent: false,
     university: '',
-    carModel: '',
-    carColor: '',
-    carPlateNumber: '',
   })
   const [loading, setLoading] = useState(false)
 
@@ -30,8 +27,14 @@ export default function DriverRegister() {
 
     try {
       const response = await api.post('/auth/driver/register', formData)
-      toast.success(response.data.message)
-      router.push('/driver/login')
+
+      if (response.data.requiresEmailVerification) {
+        // Redirect to email verification page
+        router.push(`/driver/verify-email?email=${formData.email}`)
+      } else {
+        toast.success(response.data.message)
+        router.push('/driver/login')
+      }
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Registration failed')
     } finally {
@@ -145,38 +148,6 @@ export default function DriverRegister() {
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Car Model</label>
-              <input
-                type="text"
-                value={formData.carModel}
-                onChange={(e) => setFormData({ ...formData, carModel: e.target.value })}
-                className="input"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Car Color</label>
-              <input
-                type="text"
-                value={formData.carColor}
-                onChange={(e) => setFormData({ ...formData, carColor: e.target.value })}
-                className="input"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Plate Number</label>
-              <input
-                type="text"
-                value={formData.carPlateNumber}
-                onChange={(e) => setFormData({ ...formData, carPlateNumber: e.target.value })}
-                className="input"
-                required
-              />
-            </div>
-          </div>
 
           <div>
             <label className="block text-sm font-medium mb-2">Password</label>

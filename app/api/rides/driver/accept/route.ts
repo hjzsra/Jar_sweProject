@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     // Get ride
     const ride = await prisma.ride.findUnique({
       where: { id: rideId },
-      include: { driver: true, passenger: true },
+      include: { passengers: true },
     })
 
     if (!ride) {
@@ -46,18 +46,47 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if driver owns this ride
-    if (ride.driverId !== payload.userId) {
+    // Check if ride is pending
+    if (ride.status !== 'PENDING') {
       return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 403 }
+        { error: 'Ride is not available for acceptance' },
+        { status: 400 }
       )
     }
 
     // Check if ride is in pending status
-    if (ride.status !== 'pending') {
+    if (ride.status !== 'PENDING') {
       return NextResponse.json(
-        { error: 'Ride is not in pending status' },
+        { error: 'Ride is not available for acceptance' },
+        { status: 400 }
+      )
+    }
+
+    // Get the driver
+    const driver = await prisma.driver.findUnique({
+      where: { id: payload.userId },
+    })
+
+    if (!driver) {
+      return NextResponse.json(
+        { error: 'Driver not found' },
+        { status: 404 }
+      )
+    }
+
+    // Check if driver is available
+    if (!driver.isAvailable) {
+      return NextResponse.json(
+        { error: 'Driver is not available' },
+        { status: 400 }
+      )
+    }
+
+    // Gender matching: All passengers must be same gender as driver
+    const mismatchedPassengers = ride.passengers.filter((p: any) => p.gender !== driver.gender)
+    if (mismatchedPassengers.length > 0) {
+      return NextResponse.json(
+        { error: 'Gender mismatch. All passengers must be the same gender as the driver.' },
         { status: 400 }
       )
     }
@@ -76,17 +105,55 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Update ride status
-    const updatedRide = await prisma.ride.update({
-      where: { id: rideId },
-      data: {
-        status: 'accepted',
-      },
+    // Update ride and set driver to busy
+    const result = await prisma.$transaction(async (tx: any) => {
+      // Update ride
+      const updatedRide = await tx.ride.update({
+        where: { id: rideId },
+        data: {
+          driverId: payload.userId,
+          status: 'ACCEPTED',
+        },
+      })
+
+      // Set driver to busy
+      const updatedDriver = await tx.driver.update({
+        where: { id: payload.userId },
+        data: { isAvailable: false },
+      })
+
+      // Update the accepted ride request
+      await tx.rideRequest.updateMany({
+        where: {
+          rideId: rideId,
+          driverId: payload.userId,
+          status: 'PENDING',
+        },
+        data: {
+          status: 'ACCEPTED',
+          respondedAt: new Date(),
+        },
+      })
+
+      // Reject all other pending requests for this ride
+      await tx.rideRequest.updateMany({
+        where: {
+          rideId: rideId,
+          driverId: { not: payload.userId },
+          status: 'PENDING',
+        },
+        data: {
+          status: 'REJECTED',
+          respondedAt: new Date(),
+        },
+      })
+
+      return { ride: updatedRide, driver: updatedDriver }
     })
 
     return NextResponse.json({
       message: 'Ride accepted successfully',
-      ride: updatedRide,
+      ride: result.ride,
     })
   } catch (error) {
     console.error('Accept ride error:', error)

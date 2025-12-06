@@ -36,11 +36,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Ride not found' }, { status: 404 })
     }
 
-    if (
-      (payload.role === 'user' && ride.passengerId !== payload.userId) ||
-      (payload.role === 'driver' && ride.driverId !== payload.userId)
-    ) {
+    if (payload.role === 'driver' && ride.driverId !== payload.userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    }
+
+    if (payload.role === 'user') {
+      // Check if user is a passenger on this ride
+      const isPassenger = await prisma.ride.findFirst({
+        where: {
+          id: rideId,
+          passengers: {
+            some: {
+              id: payload.userId,
+            },
+          },
+        },
+      })
+      if (!isPassenger) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+      }
     }
 
     // Get messages
@@ -104,11 +118,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Ride not found' }, { status: 404 })
     }
 
-    if (
-      (payload.role === 'user' && ride.passengerId !== payload.userId) ||
-      (payload.role === 'driver' && ride.driverId !== payload.userId)
-    ) {
+    if (payload.role === 'driver' && ride.driverId !== payload.userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    }
+
+    if (payload.role === 'user') {
+      // Check if user is a passenger on this ride
+      const isPassenger = await prisma.ride.findFirst({
+        where: {
+          id: rideId,
+          passengers: {
+            some: {
+              id: payload.userId,
+            },
+          },
+        },
+      })
+      if (!isPassenger) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+      }
     }
 
     // Create message

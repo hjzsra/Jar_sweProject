@@ -60,13 +60,22 @@ export default function AdminLogin() {
           <button type="submit" className="btn btn-primary w-full" disabled={loading}>
             {loading ? 'Logging in...' : 'Login'}
           </button>
-          <button
-            type="button"
-            onClick={() => router.push('/')}
-            className="text-secondary text-sm underline w-full"
-          >
-            Back to Home
-          </button>
+          <div className="flex justify-between items-center text-sm">
+            <button
+              type="button"
+              onClick={() => router.push('/reset-password')}
+              className="text-secondary hover:text-primary underline"
+            >
+              Forgot Password?
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push('/')}
+              className="text-secondary hover:text-primary underline"
+            >
+              Back to Home
+            </button>
+          </div>
         </form>
       </div>
     </div>

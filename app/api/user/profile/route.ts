@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyToken } from '@/lib/auth'
 
+export const dynamic = 'force-dynamic'
+
 // Get user profile
 export async function GET(request: NextRequest) {
   try {
@@ -27,7 +29,6 @@ export async function GET(request: NextRequest) {
         phone: true,
         gender: true,
         university: true,
-        walletBalance: true,
         createdAt: true,
       },
     })
@@ -74,7 +75,6 @@ export async function PUT(request: NextRequest) {
         phone: true,
         gender: true,
         university: true,
-        walletBalance: true,
       },
     })
 

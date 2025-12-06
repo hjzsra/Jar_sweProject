@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyToken } from '@/lib/auth'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -17,16 +19,19 @@ export async function GET(request: NextRequest) {
     }
 
     const rides = await prisma.ride.findMany({
-      where: { passengerId: payload.userId },
+      where: {
+        passengers: {
+          some: {
+            id: payload.userId,
+          },
+        },
+      },
       include: {
         driver: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
-            carModel: true,
-            carColor: true,
-            carPlateNumber: true,
             averageRating: true,
           },
         },
@@ -37,7 +42,26 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     })
 
-    return NextResponse.json({ rides })
+    // Add vehicle information to each ride
+    const ridesWithVehicles = await Promise.all(
+      rides.map(async (ride) => {
+        if (ride.driverId) {
+          const vehicle = await prisma.vehicle.findFirst({
+            where: { driverId: ride.driverId },
+            select: {
+              make: true,
+              model: true,
+              color: true,
+              licensePlate: true,
+            },
+          })
+          return { ...ride, vehicle }
+        }
+        return ride
+      })
+    )
+
+    return NextResponse.json({ rides: ridesWithVehicles })
   } catch (error) {
     console.error('Get trip history error:', error)
     return NextResponse.json({ error: 'Failed to get trip history' }, { status: 500 })

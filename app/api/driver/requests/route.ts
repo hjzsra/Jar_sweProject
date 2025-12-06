@@ -1,9 +1,12 @@
+export const dynamic = 'force-dynamic';
+
 // Driver ride requests API
 // Get pending ride requests for driver in their area
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyToken } from '@/lib/auth'
 import { calculateDistance } from '@/lib/utils'
+
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,70 +20,92 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    console.log('📍 Fetching ride requests for driver:', payload.userId)
+
     // Get driver location
     const driver = await prisma.driver.findUnique({
       where: { id: payload.userId },
     })
 
-    if (!driver || !driver.currentLatitude || !driver.currentLongitude) {
+    if (!driver) {
+      console.log('❌ Driver not found')
       return NextResponse.json(
-        { error: 'Driver location not set' },
+        { error: 'Driver not found' },
+        { status: 404 }
+      )
+    }
+
+    if (!driver.currentLatitude || !driver.currentLongitude) {
+      console.log('❌ Driver location not set')
+      return NextResponse.json(
+        { error: 'Driver location not set. Please enable location in dashboard.' },
         { status: 400 }
       )
     }
+
+    console.log('✅ Driver location:', {
+      lat: driver.currentLatitude,
+      lng: driver.currentLongitude,
+      gender: driver.gender
+    })
 
     // Get query parameters
     const { searchParams } = new URL(request.url)
     const radius = parseFloat(searchParams.get('radius') || '5') // Default 5km
 
-    // Get pending rides with same gender (passenger gender must match driver gender)
-    const pendingRides = await prisma.ride.findMany({
+    // Get ride requests for this driver
+    const rideRequests = await prisma.rideRequest.findMany({
       where: {
-        status: 'pending',
-        passenger: {
-          gender: driver.gender, // Only show rides from passengers of same gender
-        },
+        driverId: payload.userId,
+        status: 'PENDING', // Only show pending requests for this driver
       },
       include: {
-        passenger: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            phone: true,
-            gender: true,
+        ride: {
+          include: {
+            passengers: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                phone: true,
+                gender: true,
+              },
+            },
           },
         },
       },
     })
 
-    // Filter by distance
-    const nearbyRequests = pendingRides
-      .map((ride) => {
-        const distance = calculateDistance(
-          driver.currentLatitude!,
-          driver.currentLongitude!,
-          ride.pickupLatitude,
-          ride.pickupLongitude
+    console.log(`📋 Found ${rideRequests.length} ride requests`)
+
+    // Add distance if driver location is set
+    const requestsWithDistance = rideRequests.map((request: any) => {
+      let distance = null
+      if (driver.currentLatitude && driver.currentLongitude) {
+        distance = calculateDistance(
+          driver.currentLatitude,
+          driver.currentLongitude,
+          request.ride.pickupLatitude,
+          request.ride.pickupLongitude
         )
-        return {
-          ...ride,
-          distance,
-        }
-      })
-      .filter((ride) => ride.distance <= radius)
-      .sort((a, b) => a.distance - b.distance)
+      }
+      return {
+        ...request.ride,
+        distance,
+      }
+    }).sort((a: any, b: any) => (a.distance || 0) - (b.distance || 0))
+
+    console.log(`✅ Returning ${requestsWithDistance.length} ride requests`)
 
     return NextResponse.json({
-      requests: nearbyRequests,
-      count: nearbyRequests.length,
+      requests: requestsWithDistance,
+      count: requestsWithDistance.length,
     })
   } catch (error) {
-    console.error('Get driver requests error:', error)
+    console.error('❌ Get driver requests error:', error)
     return NextResponse.json(
       { error: 'Failed to get ride requests' },
       { status: 500 }
     )
   }
 }
-

@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { email, password } = body
 
-    if (!email || !password) {
+    if (!email?.trim() || !password?.trim()) {
       return NextResponse.json(
         { error: 'Email and password are required' },
         { status: 400 }
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     // Find user
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { email: email.trim() },
     })
 
     if (!user) {
@@ -60,7 +60,6 @@ export async function POST(request: NextRequest) {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
-        walletBalance: user.walletBalance,
       },
     })
   } catch (error) {

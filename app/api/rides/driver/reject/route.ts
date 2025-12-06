@@ -45,19 +45,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if driver owns this ride
-    if (ride.driverId !== payload.userId) {
+    // Check if ride is pending
+    if (ride.status !== 'PENDING') {
       return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 403 }
+        { error: 'Ride is not available for rejection' },
+        { status: 400 }
       )
     }
 
-    // Update ride status
+    // Update ride
     const updatedRide = await prisma.ride.update({
       where: { id: rideId },
       data: {
-        status: 'rejected',
+        status: 'CANCELLED',
         rejectionReason: reason || 'Driver rejected the ride',
       },
     })

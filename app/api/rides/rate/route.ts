@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = verifyToken(token)
-    if (!payload || payload.role !== 'user') {
+    if (!payload || !payload.userId || payload.role !== 'user') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -44,13 +44,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Ride not found' }, { status: 404 })
     }
 
-    if (ride.passengerId !== payload.userId) {
+    // Check if user is a passenger on this ride
+    const isPassenger = await prisma.ride.findFirst({
+      where: {
+        id: rideId,
+        passengers: {
+          some: {
+            id: payload.userId,
+          },
+        },
+      },
+    })
+
+    if (!isPassenger) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    if (ride.status !== 'completed') {
+    if (ride.status !== 'COMPLETED') {
       return NextResponse.json(
         { error: 'Can only rate completed rides' },
+        { status: 400 }
+      )
+    }
+
+    if (!ride.driverId) {
+      return NextResponse.json(
+        { error: 'Ride has no driver assigned' },
         { status: 400 }
       )
     }
@@ -88,7 +107,7 @@ export async function POST(request: NextRequest) {
     })
 
     const averageRating =
-      allRatings.reduce((sum, r) => sum + r.driverRating, 0) / allRatings.length
+      allRatings.reduce((sum: number, r: any) => sum + r.driverRating, 0) / allRatings.length
 
     await prisma.driver.update({
       where: { id: ride.driverId },
