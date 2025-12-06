@@ -18,6 +18,7 @@ enum UserRole {
 }
 
 enum RideStatus {
+  REQUESTED
   PENDING
   ACCEPTED
   DRIVER_ARRIVED
@@ -25,11 +26,13 @@ enum RideStatus {
   COMPLETED
   CANCELLED
   REJECTED
+  EXPIRED
 }
 
 enum PaymentMethod {
   CASH
   APPLE_PAY
+  BANK_TRANSFER
 }
 
 enum PaymentStatus {
@@ -71,6 +74,21 @@ enum TicketStatus {
   CLOSED
 }
 
+enum CancellationReason {
+  // Driver cancellation reasons
+  TRAFFIC_CONGESTION
+  VEHICLE_ISSUE
+  PERSONAL_EMERGENCY
+  OTHER_DRIVER
+
+  // Student cancellation reasons
+  DRIVER_TOO_FAR
+  DRIVER_LATE
+  DRIVER_NOT_RESPONDING
+  CHANGE_OF_PLANS
+  OTHER_STUDENT
+}
+
 // User model - represents students who can be passengers
 model User {
   id            String    @id @default(cuid())
@@ -85,11 +103,10 @@ model User {
   phone         String
   gender        String
   university    String
-  walletBalance Float     @default(0.0)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  ridesAsPassenger Ride[]           @relation("PassengerRides")
+  ridesAsPassenger Ride[]           @relation("RidePassengers")
   ratings          Rating[]
   chatMessages     ChatMessage[]
   wallet           Wallet?
@@ -97,7 +114,12 @@ model User {
   otpCodes         OtpCode[]
   chatThreadsA     ChatThread[]     @relation("ThreadA")
   chatThreadsB     ChatThread[]     @relation("ThreadB")
-  supportMessages  SupportMessage[] // 🔥 FIX ADDED HERE
+  supportMessages  SupportMessage[]
+  documents        DocumentVerification[]
+  reportsMade      SafetyReport[]   @relation("ReporterReports")
+  reportsReceived  SafetyReport[]   @relation("ReportedUser")
+  sosLogs          SOSSLog[]
+  bans             UserBan[]
 
   @@index([role])
   @@map("users")
@@ -116,9 +138,12 @@ model Driver {
   licenseVerified Boolean @default(false)
   isStudent       Boolean @default(false)
   university      String?
-  carModel        String
-  carColor        String
-  carPlateNumber  String
+  emailVerified   Boolean @default(false)
+
+  // Background check fields
+  backgroundCheckStatus String   @default("pending") // 'pending', 'approved', 'rejected'
+  backgroundCheckDate   DateTime?
+  backgroundCheckNotes  String?
 
   // Add these fields:
   currentLatitude  Float?
@@ -127,6 +152,14 @@ model Driver {
 
   averageRating Float    @default(0)
   totalRatings  Int      @default(0)
+
+  // Driver earnings and penalties
+  totalEarnings    Int @default(0) // Total earnings in cents
+  availableBalance Int @default(0) // Available for payout in cents
+  totalPenalties   Int @default(0) // Total penalties in cents
+  cancellationCount Int @default(0) // Number of ride cancellations
+  lastCancellation DateTime? // Last cancellation timestamp
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -136,6 +169,30 @@ model Driver {
   location     DriverLocation?
   rideRequests RideRequest[]
   payouts      Payout[]
+  documents    DocumentVerification[]
+  vehicles     Vehicle[]
+}
+
+// Vehicle model for proper vehicle management
+model Vehicle {
+  id              String   @id @default(cuid())
+  driverId        String
+  make            String   // e.g., Toyota
+  model           String   // e.g., Camry
+  year            Int
+  color           String
+  licensePlate    String   @unique
+  insuranceNumber String?
+  insuranceExpiry DateTime?
+  inspectionDate  DateTime?
+  inspectionExpiry DateTime?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  driver Driver @relation(fields: [driverId], references: [id])
+
+  @@map("vehicles")
 }
 
 // Latest driver location (separate table for geospatial indexing and history potential)
@@ -155,8 +212,7 @@ model DriverLocation {
 // Ride model - represents a ride booking
 model Ride {
   id               String        @id @default(cuid())
-  driverId         String
-  passengerId      String
+  driverId         String?
   pickupLatitude   Float
   pickupLongitude  Float
   dropoffLatitude  Float
@@ -167,6 +223,7 @@ model Ride {
   isPreBooked      Boolean       @default(false)
   status           RideStatus    @default(PENDING)
   rejectionReason  String?
+  cancellationReason CancellationReason?
   cost             Float
   costPerPassenger Float
   paymentMethod    PaymentMethod
@@ -177,16 +234,18 @@ model Ride {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
-  driver       Driver        @relation(fields: [driverId], references: [id])
-  passenger    User          @relation("PassengerRides", fields: [passengerId], references: [id])
+  driver       Driver?       @relation(fields: [driverId], references: [id])
+  passengers   User[]        @relation("RidePassengers")
   ratings      Rating[]
   chatMessages ChatMessage[]
   requests     RideRequest[]
   events       RideEvent[]
+  locations    RideLocation[]
   chatThreads  ChatThread[] // 🔥 FIX ADDED HERE
+  safetyReports SafetyReport[]
+  sosLogs      SOSSLog[]
 
   @@index([driverId])
-  @@index([passengerId])
   @@index([status])
   @@map("rides")
 }
@@ -206,6 +265,22 @@ model RideRequest {
   @@unique([rideId, driverId])
   @@index([status])
   @@map("ride_requests")
+}
+
+// GPS tracking for active rides
+model RideLocation {
+  id        String   @id @default(cuid())
+  rideId    String
+  latitude  Float
+  longitude Float
+  heading   Float?
+  speed     Float?
+  timestamp DateTime @default(now())
+
+  ride Ride @relation(fields: [rideId], references: [id])
+
+  @@index([rideId, timestamp])
+  @@map("ride_locations")
 }
 
 // Event log for rides
@@ -328,11 +403,13 @@ model ChatMessage {
 
 // Admin model - for website administrators
 model Admin {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  name      String
-  createdAt DateTime @default(now())
+  id               String   @id @default(cuid())
+  email            String   @unique
+  password         String
+  name             String
+  securityQuestion String?
+  securityAnswer   String?
+  createdAt        DateTime @default(now())
 
   @@map("admins")
 }
@@ -385,4 +462,108 @@ model OtpCode {
   @@index([destination])
   @@index([userId])
   @@map("otp_codes")
+}
+
+// Password reset tokens
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  role      UserRole // USER, DRIVER, ADMIN
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([token])
+  @@map("password_reset_tokens")
+}
+
+// Document verification for drivers and students
+model DocumentVerification {
+  id          String   @id @default(cuid())
+  userId      String?  // For students
+  driverId    String?  // For drivers
+  documentType String  // 'university_id', 'drivers_license'
+  fileUrl     String
+  status      String   @default("pending") // 'pending', 'approved', 'rejected'
+  reviewedBy  String?  // Admin ID who reviewed
+  reviewedAt  DateTime?
+  rejectionReason String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user   User?   @relation(fields: [userId], references: [id])
+  driver Driver? @relation(fields: [driverId], references: [id])
+
+  @@index([userId])
+  @@index([driverId])
+  @@index([status])
+  @@map("document_verifications")
+}
+
+// Safety reports and user management
+model SafetyReport {
+  id          String   @id @default(cuid())
+  reporterId  String   // User who reported
+  reportedId  String   // User/driver being reported
+  rideId      String?  // Associated ride if applicable
+  reportType  String   // 'reckless_driving', 'harassment', 'other'
+  description String
+  status      String   @default("pending") // 'pending', 'investigating', 'resolved', 'dismissed'
+  adminAction String?  // 'warning', 'ban', 'none'
+  adminNotes  String?
+  reviewedBy  String?  // Admin ID
+  reviewedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  reporter User   @relation("ReporterReports", fields: [reporterId], references: [id])
+  reported User   @relation("ReportedUser", fields: [reportedId], references: [id])
+  ride     Ride?  @relation(fields: [rideId], references: [id])
+
+  @@index([reporterId])
+  @@index([reportedId])
+  @@index([status])
+  @@map("safety_reports")
+}
+
+// SOS emergency logs
+model SOSSLog {
+  id        String   @id @default(cuid())
+  userId    String   // User who pressed SOS
+  rideId    String   // Current ride
+  latitude  Float?
+  longitude Float?
+  message   String?  // Optional message from user
+  status    String   @default("active") // 'active', 'resolved', 'false_alarm'
+  resolvedBy String? // Admin who resolved
+  resolvedAt DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  ride Ride @relation(fields: [rideId], references: [id])
+
+  @@index([userId])
+  @@index([rideId])
+  @@index([status])
+  @@map("sos_logs")
+}
+
+// User bans and warnings
+model UserBan {
+  id          String   @id @default(cuid())
+  userId      String
+  banType     String   // 'warning', 'temporary_ban', 'permanent_ban'
+  reason      String
+  bannedBy    String   // Admin ID
+  expiresAt   DateTime? // For temporary bans
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([isActive])
+  @@map("user_bans")
 }

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // Get active rides for driver
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
@@ -28,13 +30,14 @@ export async function GET(request: NextRequest) {
         },
       },
       include: {
-        passenger: {
+        passengers: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
             phone: true,
             gender: true,
+            email: true,
           },
         },
       },

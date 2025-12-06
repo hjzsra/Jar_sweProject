@@ -3,7 +3,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyToken } from '@/lib/auth'
-import { TransactionSource, TransactionType } from '@prisma/client'
 
 // Get wallet balance and recent transactions
 export async function GET(request: NextRequest) {
@@ -59,7 +58,7 @@ export async function GET(request: NextRequest) {
       balance: balanceInSAR,
       balanceInCents: wallet.balance,
       currency: wallet.currency,
-      transactions: wallet.txns.map((txn) => ({
+      transactions: wallet.txns.map((txn: any) => ({
         id: txn.id,
         type: txn.type,
         source: txn.source,
@@ -102,15 +101,15 @@ export async function POST(request: NextRequest) {
     // Validate amount
     if (!amount || amount <= 0) {
       return NextResponse.json(
-        { error: 'Valid amount is required (must be greater than 0)' },
+        { error: `Valid amount is required (must be greater than 0). Received: ${amount}, type: ${typeof amount}` },
         { status: 400 }
       )
     }
 
     // Validate payment method
-    if (!paymentMethod || !['APPLE_PAY', 'CASH'].includes(paymentMethod)) {
+    if (!paymentMethod || !['APPLE_PAY', 'CASH', 'BANK_TRANSFER'].includes(paymentMethod)) {
       return NextResponse.json(
-        { error: 'Valid payment method is required (APPLE_PAY or CASH)' },
+        { error: `Valid payment method is required (APPLE_PAY, CASH, or BANK_TRANSFER). Received: ${paymentMethod}, type: ${typeof paymentMethod}` },
         { status: 400 }
       )
     }
@@ -141,7 +140,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Use transaction to ensure atomicity
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       // Update wallet balance
       const updatedWallet = await tx.wallet.update({
         where: { id: wallet.id },

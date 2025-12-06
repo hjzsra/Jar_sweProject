@@ -7,6 +7,7 @@ import dynamic from 'next/dynamic'
 import AuthGuard from '@/components/AuthGuard'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
 import api from '@/lib/api'
+import { PRICING } from '@/lib/constants'
 import toast from 'react-hot-toast'
 
 const MapView = dynamic(() => import('@/components/MapView'), {
@@ -16,13 +17,14 @@ const MapView = dynamic(() => import('@/components/MapView'), {
 
 export default function BookRide() {
   const router = useRouter()
-  const [step, setStep] = useState<'location' | 'driver' | 'confirm'>('location')
+  const [step, setStep] = useState<'location' | 'passengers' | 'confirm'>('location')
   const [pickupLocation, setPickupLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [dropoffLocation, setDropoffLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [pickupAddress, setPickupAddress] = useState('')
   const [dropoffAddress, setDropoffAddress] = useState('')
-  const [nearbyDrivers, setNearbyDrivers] = useState<any[]>([])
-  const [selectedDriver, setSelectedDriver] = useState<any>(null)
+  // Removed driver selection
+  const [passengers, setPassengers] = useState<any[]>([])
+  const [passengerEmails, setPassengerEmails] = useState<string[]>([])
   const [formData, setFormData] = useState({
     isPreBooked: false,
     scheduledTime: '',
@@ -30,12 +32,13 @@ export default function BookRide() {
   })
   const [loading, setLoading] = useState(false)
   const [estimatedCost, setEstimatedCost] = useState(0)
+  const [costPerPassenger, setCostPerPassenger] = useState(0)
 
   useEffect(() => {
     if (pickupLocation && dropoffLocation) {
       calculateEstimatedCost()
     }
-  }, [pickupLocation, dropoffLocation])
+  }, [pickupLocation, dropoffLocation, passengers])
 
   const getCurrentLocation = () => {
     navigator.geolocation.getCurrentPosition(
@@ -54,12 +57,13 @@ export default function BookRide() {
 
   const reverseGeocode = async (lat: number, lng: number, type: 'pickup' | 'dropoff') => {
     try {
+      // Use Nominatim for reverse geocoding (consistent with AddressAutocomplete)
       const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8`
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`
       )
       const data = await response.json()
-      if (data.results && data.results[0]) {
-        const address = data.results[0].formatted_address
+      if (data && data.display_name) {
+        const address = data.display_name
         if (type === 'pickup') {
           setPickupAddress(address)
         } else {
@@ -86,47 +90,70 @@ export default function BookRide() {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
     const distance = R * c
 
-    setEstimatedCost(distance * 1) // $1 per km
+    const totalCost = distance * PRICING.BASE_RATE_PER_KM
+    const passengerCount = Math.max(passengers.length + 1, 1) // +1 for current user
+    const perPassengerCost = totalCost / passengerCount
+
+    setEstimatedCost(totalCost)
+    setCostPerPassenger(perPassengerCost)
   }
 
-  const loadNearbyDrivers = async () => {
-    if (!pickupLocation) return
+
+  const addPassenger = async () => {
+    const email = passengerEmails[passengerEmails.length - 1]?.trim()
+    if (!email) return
+
+    // Check if already added
+    if (passengers.some(p => p.email === email)) {
+      toast.error('Passenger already added')
+      return
+    }
 
     setLoading(true)
     try {
-      const response = await api.get('/rides/nearby-drivers', {
-        params: {
-          latitude: pickupLocation.lat,
-          longitude: pickupLocation.lng,
-          radius: 10,
-        },
-      })
-      setNearbyDrivers(response.data.drivers)
-      setStep('driver')
-    } catch (error) {
-      toast.error('Failed to load nearby drivers')
+      // For now, we'll assume we have an API to search users by email
+      // In a real implementation, you'd have an API endpoint for this
+      const response = await api.get('/user/search', { params: { email } })
+      const user = response.data.user
+
+      if (!user) {
+        toast.error('User not found')
+        return
+      }
+
+      setPassengers([...passengers, user])
+      setPassengerEmails([...passengerEmails.slice(0, -1), '']) // Clear the input
+      toast.success('Passenger added!')
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to add passenger')
     } finally {
       setLoading(false)
     }
   }
 
   const handleBookRide = async () => {
-    if (!selectedDriver || !pickupLocation || !dropoffLocation) return
+    if (!pickupLocation || !dropoffLocation) return
+
+    if (!pickupAddress.trim() || !dropoffAddress.trim()) {
+      toast.error('Please provide valid pickup and dropoff addresses')
+      return
+    }
 
     setLoading(true)
     try {
+      const passengerIds = passengers.map(p => p.id)
       const response = await api.post('/rides/create', {
-        driverId: selectedDriver.id,
         pickupLatitude: pickupLocation.lat,
         pickupLongitude: pickupLocation.lng,
         dropoffLatitude: dropoffLocation.lat,
         dropoffLongitude: dropoffLocation.lng,
         pickupAddress,
         dropoffAddress,
+        passengerIds: passengerIds.length > 0 ? passengerIds : undefined,
         ...formData,
       })
       toast.success('Ride request created!')
-      router.push(`/user/track-ride?rideId=${response.data.rideId}`)
+      router.push(`/user/track-ride?rideId=${response.data.ride.id}`)
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Failed to create ride')
     } finally {
@@ -155,7 +182,7 @@ export default function BookRide() {
       <div className="min-h-screen bg-background">
         <nav className="bg-white shadow-sm p-4">
           <div className="max-w-7xl mx-auto flex justify-between items-center">
-            <h1 className="text-xl font-bold text-primary">Book a Ride</h1>
+            <h1 className="text-xl font-bold text-primary">Request a Ride</h1>
             <button
               onClick={() => router.push('/user/dashboard')}
               className="btn btn-outline"
@@ -242,54 +269,82 @@ export default function BookRide() {
 
                 {estimatedCost > 0 && (
                   <div className="p-4 bg-primary text-white rounded-lg">
-                    <p className="text-sm">Estimated Cost</p>
+                    <p className="text-sm">Estimated Total Cost</p>
                     <p className="text-2xl font-bold">{estimatedCost.toFixed(2)} ر.س</p>
+                    <p className="text-sm opacity-90">
+                      ({costPerPassenger.toFixed(2)} ر.س per passenger)
+                    </p>
                   </div>
                 )}
 
                 <button
-                  onClick={loadNearbyDrivers}
+                  onClick={() => setStep('passengers')}
                   className="btn btn-primary w-full"
-                  disabled={!pickupLocation || !dropoffLocation || loading}
+                  disabled={!pickupLocation || !dropoffLocation}
                 >
-                  {loading ? 'Loading...' : 'Find Drivers'}
+                  Continue to Ride Request
                 </button>
               </div>
             )}
 
-            {step === 'driver' && (
+            {step === 'passengers' && (
               <div className="space-y-4">
-                <h4 className="font-medium">Available Drivers ({nearbyDrivers.length})</h4>
-                {nearbyDrivers.length === 0 ? (
-                  <p className="text-secondary">No drivers available in your area</p>
-                ) : (
-                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                    {nearbyDrivers.map((driver) => (
-                      <div
-                        key={driver.id}
-                        className={`p-3 border rounded-lg cursor-pointer hover:bg-gray-50 ${
-                          selectedDriver?.id === driver.id ? 'border-primary bg-blue-50' : ''
-                        }`}
-                        onClick={() => setSelectedDriver(driver)}
-                      >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-medium">
-                              {driver.firstName} {driver.lastName}
-                            </p>
-                            <p className="text-sm text-secondary">
-                              {driver.carModel} - {driver.carColor}
-                            </p>
-                            <p className="text-xs text-secondary">
-                              {driver.distance?.toFixed(2)} km away
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm">⭐ {driver.averageRating?.toFixed(1) || 'N/A'}</p>
-                          </div>
+                <h4 className="font-medium">Add Passengers (Optional)</h4>
+                <p className="text-sm text-secondary">
+                  Add friends to share this ride. Cost will be split equally.
+                </p>
+
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      placeholder="Enter passenger email"
+                      className="input flex-1"
+                      value={passengerEmails[passengerEmails.length - 1] || ''}
+                      onChange={(e) => {
+                        const newEmails = [...passengerEmails]
+                        newEmails[newEmails.length - 1] = e.target.value
+                        setPassengerEmails(newEmails)
+                      }}
+                    />
+                    <button
+                      onClick={addPassenger}
+                      className="btn btn-outline"
+                      disabled={!passengerEmails[passengerEmails.length - 1]?.trim() || loading}
+                    >
+                      {loading ? 'Adding...' : 'Add'}
+                    </button>
+                  </div>
+
+                  {passengers.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Added Passengers:</p>
+                      {passengers.map((passenger, index) => (
+                        <div key={passenger.id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                          <span>{passenger.firstName} {passenger.lastName} ({passenger.email})</span>
+                          <button
+                            onClick={() => {
+                              setPassengers(passengers.filter((_, i) => i !== index))
+                            }}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            Remove
+                          </button>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {estimatedCost > 0 && (
+                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-sm font-medium text-green-800">Cost Breakdown</p>
+                    <p className="text-lg font-bold text-green-900">
+                      Total: {estimatedCost.toFixed(2)} ر.س
+                    </p>
+                    <p className="text-sm text-green-700">
+                      Per passenger: {costPerPassenger.toFixed(2)} ر.س ({passengers.length + 1} passengers)
+                    </p>
                   </div>
                 )}
 
@@ -300,13 +355,13 @@ export default function BookRide() {
                   <button
                     onClick={() => setStep('confirm')}
                     className="btn btn-primary flex-1"
-                    disabled={!selectedDriver}
                   >
                     Continue
                   </button>
                 </div>
               </div>
             )}
+
 
             {step === 'confirm' && (
               <div className="space-y-4">
@@ -353,27 +408,40 @@ export default function BookRide() {
                 </div>
 
                 <div className="p-4 bg-gray-50 rounded-lg space-y-2">
-                  <h4 className="font-medium">Ride Summary</h4>
-                  <div className="text-sm space-y-1">
-                    <p>
-                      <span className="text-secondary">Driver:</span> {selectedDriver?.firstName}{' '}
-                      {selectedDriver?.lastName}
-                    </p>
-                    <p>
-                      <span className="text-secondary">From:</span> {pickupAddress}
-                    </p>
-                    <p>
-                      <span className="text-secondary">To:</span> {dropoffAddress}
-                    </p>
-                    <p>
-                      <span className="text-secondary">Estimated Cost:</span>{' '}
-                      {estimatedCost.toFixed(2)} ر.س
-                    </p>
-                  </div>
-                </div>
+                   <h4 className="font-medium">Ride Request Summary</h4>
+                   <div className="text-sm space-y-1">
+                     <p>
+                       <span className="text-secondary">From:</span> {pickupAddress}
+                     </p>
+                     <p>
+                       <span className="text-secondary">To:</span> {dropoffAddress}
+                     </p>
+                     <p>
+                       <span className="text-secondary">Passengers:</span> {passengers.length + 1}
+                     </p>
+                     <p>
+                       <span className="text-secondary">Estimated Total Cost:</span>{' '}
+                       {estimatedCost.toFixed(2)} ر.س
+                     </p>
+                     <p>
+                       <span className="text-secondary">Cost per passenger:</span>{' '}
+                       {costPerPassenger.toFixed(2)} ر.س
+                     </p>
+                     {passengers.length > 0 && (
+                       <div className="mt-2">
+                         <p className="text-secondary text-xs">Passengers:</p>
+                         <ul className="text-xs ml-4">
+                           {passengers.map((p, i) => (
+                             <li key={i}>• {p.firstName} {p.lastName}</li>
+                           ))}
+                         </ul>
+                       </div>
+                     )}
+                   </div>
+                 </div>
 
                 <div className="flex gap-2">
-                  <button onClick={() => setStep('driver')} className="btn btn-outline flex-1">
+                  <button onClick={() => setStep('passengers')} className="btn btn-outline flex-1">
                     Back
                   </button>
                   <button
@@ -381,7 +449,7 @@ export default function BookRide() {
                     className="btn btn-primary flex-1"
                     disabled={loading}
                   >
-                    {loading ? 'Booking...' : 'Confirm Booking'}
+                    {loading ? 'Requesting...' : 'Request Ride'}
                   </button>
                 </div>
               </div>

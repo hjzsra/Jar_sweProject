@@ -18,6 +18,8 @@ async function main() {
       email: adminEmail,
       password: hashedAdmin,
       name: 'Admin User',
+      securityQuestion: 'What is the name of your first school?',
+      securityAnswer: 'elementary',
     },
   })
 
@@ -76,10 +78,23 @@ async function main() {
       licenseNumber: 'LIC-12345',
       licenseVerified: true,
       isStudent: false,
-      carModel: 'Toyota Corolla',
-      carColor: 'White',
-      carPlateNumber: 'ABC-123',
+      backgroundCheckStatus: 'APPROVED',
       isAvailable: true,
+    },
+  })
+  
+  // Create vehicle for the driver
+  const vehicle = await prisma.vehicle.upsert({
+    where: { licensePlate: 'ABC-123' },
+    update: {},
+    create: {
+      driverId: driver.id,
+      make: 'Toyota',
+      model: 'Corolla',
+      color: 'White',
+      licensePlate: 'ABC-123',
+      year: 2020,
+      isActive: true,
     },
   })
 
@@ -90,11 +105,36 @@ async function main() {
     create: { driverId: driver.id, lat: 24.7136, lng: 46.6753 },
   })
 
-  // Create a ride
+  // Create a completed ride (for admin dashboard)
+  const completedRide = await prisma.ride.create({
+    data: {
+      driverId: driver.id,
+      passengers: {
+        connect: { id: user.id },
+      },
+      pickupLatitude: 24.7136,
+      pickupLongitude: 46.6753,
+      dropoffLatitude: 24.7743,
+      dropoffLongitude: 46.7386,
+      pickupAddress: 'Gate A, Sample University',
+      dropoffAddress: 'Dormitory 5',
+      status: RideStatus.COMPLETED,
+      cost: 30.0,
+      costPerPassenger: 30.0,
+      paymentMethod: PaymentMethod.CASH,
+      paymentStatus: PaymentStatus.PAID,
+      tripStartedAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
+      tripEndedAt: new Date(Date.now() - 1.5 * 60 * 60 * 1000), // 1.5 hours ago
+    },
+  })
+
+  // Create a pending ride
   const ride = await prisma.ride.create({
     data: {
       driverId: driver.id,
-      passengerId: user.id,
+      passengers: {
+        connect: { id: user.id },
+      },
       pickupLatitude: 24.7136,
       pickupLongitude: 46.6753,
       dropoffLatitude: 24.7743,
@@ -102,8 +142,8 @@ async function main() {
       pickupAddress: 'Gate A, Sample University',
       dropoffAddress: 'Dormitory 5',
       status: RideStatus.PENDING,
-      cost: 30.0,
-      costPerPassenger: 30.0,
+      cost: 25.0,
+      costPerPassenger: 25.0,
       paymentMethod: PaymentMethod.CASH,
       paymentStatus: PaymentStatus.PENDING,
     },
@@ -135,8 +175,63 @@ async function main() {
     },
   })
 
+  // Create sample support tickets
+  const openTicket = await prisma.supportTicket.create({
+    data: {
+      userId: user.id,
+      email: user.email,
+      subject: 'Issue with ride booking',
+      message: 'I am having trouble booking a ride. The app keeps crashing when I try to select a destination.',
+      status: 'OPEN',
+    },
+  })
+
+  const inProgressTicket = await prisma.supportTicket.create({
+    data: {
+      userId: user.id,
+      email: user.email,
+      subject: 'Payment not processed',
+      message: 'I completed a ride but the payment hasn\'t been deducted from my wallet. Can you help?',
+      status: 'IN_PROGRESS',
+    },
+  })
+
+  const resolvedTicket = await prisma.supportTicket.create({
+    data: {
+      userId: user.id,
+      email: user.email,
+      subject: 'Driver rating issue',
+      message: 'I tried to rate my driver but the stars don\'t show up. Is there a bug?',
+      status: 'RESOLVED',
+    },
+  })
+
+  // Add admin replies to tickets
+  await prisma.supportMessage.create({
+    data: {
+      ticketId: inProgressTicket.id,
+      message: 'Thank you for reporting this issue. We\'re investigating the payment processing problem. We\'ll get back to you within 24 hours.',
+    },
+  })
+
+  await prisma.supportMessage.create({
+    data: {
+      ticketId: resolvedTicket.id,
+      message: 'We\'ve identified and fixed the rating issue. Please try again now. Thank you for your patience!',
+    },
+  })
+
   console.log('Seed completed:')
-  console.log({ admin: admin.email, user: user.email, driver: driver.email, ride: ride.id })
+  console.log({
+    admin: admin.email,
+    user: user.email,
+    driver: driver.email,
+    completedRide: completedRide.id,
+    pendingRide: ride.id,
+    openTicket: openTicket.id,
+    inProgressTicket: inProgressTicket.id,
+    resolvedTicket: resolvedTicket.id
+  })
 }
 
 main()

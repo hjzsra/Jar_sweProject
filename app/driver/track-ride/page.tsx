@@ -1,14 +1,18 @@
-// Driver track active ride with map
 'use client'
 
-import { useState, useEffect } from 'react'
+// Driver track active ride with map
+export const dynamic = 'force-dynamic';
+
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import dynamicImport from 'next/dynamic'
 import AuthGuard from '@/components/AuthGuard'
-import MapView from '@/components/MapView'
 import api from '@/lib/api'
 import toast from 'react-hot-toast'
 
-export default function DriverTrackRide() {
+const MapView = dynamicImport(() => import('@/components/MapView'), { ssr: false })
+
+function DriverTrackRideContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const rideId = searchParams.get('rideId')
@@ -16,6 +20,8 @@ export default function DriverTrackRide() {
   const [loading, setLoading] = useState(true)
   const [messages, setMessages] = useState<any[]>([])
   const [newMessage, setNewMessage] = useState('')
+  const [driverLocation, setDriverLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [mapKey, setMapKey] = useState(0) // Force map re-render
 
   useEffect(() => {
     if (rideId) {
@@ -37,10 +43,22 @@ export default function DriverTrackRide() {
 
   const loadRideData = async () => {
     try {
+      console.log('Loading ride data for ID:', rideId)
       const response = await api.get(`/rides/${rideId}`)
-      setRide(response.data.ride)
-    } catch (error) {
-      toast.error('Failed to load ride data')
+      console.log('Ride data received:', response.data)
+
+      const rideData = response.data.ride
+
+      // Check if this driver is assigned to this ride
+      if (rideData.driverId !== undefined) { // Allow undefined for debugging
+        // For now, just log the driver ID check
+        console.log('Ride driver ID:', rideData.driverId)
+      }
+
+      setRide(rideData)
+    } catch (error: any) {
+      console.error('Error loading ride data:', error)
+      toast.error(`Failed to load ride data: ${error.response?.data?.error || error.message}`)
     } finally {
       setLoading(false)
     }
@@ -58,10 +76,15 @@ export default function DriverTrackRide() {
   const updateLocation = () => {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
+        const { latitude, longitude } = position.coords
+        const newLocation = { lat: latitude, lng: longitude }
+        setDriverLocation(newLocation)
+        setMapKey(prev => prev + 1) // Force map re-render
+
         try {
           await api.post('/driver/update-location', {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
+            latitude,
+            longitude,
             isAvailable: true,
           })
         } catch (error) {
@@ -88,13 +111,62 @@ export default function DriverTrackRide() {
     }
   }
 
-  const handleRideAction = async (action: 'arrived' | 'start' | 'end') => {
+  const handleRideAction = async (action: 'arrived' | 'start' | 'end', passengerId?: string) => {
     try {
-      await api.post(`/rides/driver/${action}`, { rideId })
-      toast.success(`Ride ${action}ed successfully`)
+      const payload: any = { rideId }
+      if (passengerId) payload.passengerId = passengerId
+
+      await api.post(`/rides/driver/${action}`, payload)
+      toast.success(passengerId ? `Passenger trip ended successfully` : `Ride ${action}ed successfully`)
       loadRideData()
     } catch (error: any) {
       toast.error(error.response?.data?.error || `Failed to ${action} ride`)
+    }
+  }
+
+  const handleCancelRide = async () => {
+    const reasons = [
+      { value: 'TRAFFIC_CONGESTION', label: 'Traffic congestion' },
+      { value: 'VEHICLE_ISSUE', label: 'Vehicle issue' },
+      { value: 'PERSONAL_EMERGENCY', label: 'Personal emergency' },
+      { value: 'OTHER_DRIVER', label: 'Other reason' },
+    ]
+
+    const reasonSelect = document.createElement('select')
+    reasonSelect.innerHTML = reasons.map(r => `<option value="${r.value}">${r.label}</option>`).join('')
+    reasonSelect.style.cssText = 'width: 100%; padding: 8px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px;'
+
+    const modal = document.createElement('div')
+    modal.style.cssText = `
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
+      z-index: 1000;
+    `
+    modal.innerHTML = `
+      <div style="background: white; padding: 20px; border-radius: 8px; max-width: 400px; width: 90%;">
+        <h3 style="margin: 0 0 15px 0;">Cancel Ride</h3>
+        <p style="margin: 0 0 15px 0; color: #666;">Please select a reason for cancellation:</p>
+        <div style="margin-bottom: 20px;">${reasonSelect.outerHTML}</div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button onclick="this.closest('.modal').remove()" style="padding: 8px 16px; border: 1px solid #ccc; background: white; border-radius: 4px; cursor: pointer;">Cancel</button>
+          <button id="confirm-cancel" style="padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">Confirm Cancellation</button>
+        </div>
+      </div>
+    `
+
+    document.body.appendChild(modal)
+
+    document.getElementById('confirm-cancel')!.onclick = async () => {
+      const selectedReason = (modal.querySelector('select') as HTMLSelectElement).value
+
+      try {
+        await api.post('/rides/driver/cancel', { rideId, reason: selectedReason })
+        toast.success('Ride cancelled')
+        modal.remove()
+        router.push('/driver/dashboard')
+      } catch (error: any) {
+        toast.error(error.response?.data?.error || 'Failed to cancel ride')
+      }
     }
   }
 
@@ -112,7 +184,18 @@ export default function DriverTrackRide() {
     return (
       <AuthGuard requiredRole="driver">
         <div className="min-h-screen bg-background flex items-center justify-center">
-          <div className="text-secondary">Ride not found</div>
+          <div className="text-center">
+            <div className="text-secondary mb-4">Ride not found or not assigned to you</div>
+            <div className="text-sm text-gray-500 mb-4">
+              Ride ID: {rideId}
+            </div>
+            <button
+              onClick={() => router.push('/driver/dashboard')}
+              className="btn btn-primary"
+            >
+              Back to Dashboard
+            </button>
+          </div>
         </div>
       </AuthGuard>
     )
@@ -129,6 +212,11 @@ export default function DriverTrackRide() {
       title: 'Dropoff',
       type: 'dropoff' as const,
     },
+    ...(driverLocation ? [{
+      position: driverLocation,
+      title: 'Your Location',
+      type: 'driver' as const,
+    }] : []),
   ]
 
   const getNextAction = () => {
@@ -165,8 +253,16 @@ export default function DriverTrackRide() {
           {/* Map Section */}
           <div className="lg:col-span-2 space-y-4">
             <div className="card">
-              <h2 className="text-xl font-bold mb-4">Route Map</h2>
-              <MapView markers={markers} showRoute={true} height="500px" />
+              <h2 className="text-xl font-bold mb-4">Live Route Tracking</h2>
+              <div className="mb-2 text-sm text-secondary">
+                🟢 Live tracking active - Your location updates every 10 seconds
+              </div>
+              <MapView
+                key={mapKey}
+                markers={markers}
+                showRoute={ride.status === 'IN_PROGRESS'}
+                height="500px"
+              />
             </div>
 
             {/* Ride Details */}
@@ -187,11 +283,25 @@ export default function DriverTrackRide() {
                     {ride.status}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-secondary">Passenger:</span>
-                  <span className="font-medium">
-                    {ride.passenger?.firstName} {ride.passenger?.lastName}
-                  </span>
+                <div>
+                  <span className="text-secondary">Passengers:</span>
+                  <div className="mt-2 space-y-2">
+                    {ride.passengers.map((passenger: any) => (
+                      <div key={passenger.id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                        <span className="font-medium">
+                          {passenger.firstName} {passenger.lastName}
+                        </span>
+                        {ride.status === 'IN_PROGRESS' && (
+                          <button
+                            onClick={() => handleRideAction('end', passenger.id)}
+                            className="btn btn-secondary text-xs"
+                          >
+                            End Trip
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-secondary">Pickup:</span>
@@ -221,14 +331,24 @@ export default function DriverTrackRide() {
                 )}
               </div>
 
-              {nextAction && (
-                <button
-                  onClick={() => handleRideAction(nextAction.action as any)}
-                  className={`btn btn-${nextAction.color} w-full mt-4`}
-                >
-                  {nextAction.label}
-                </button>
-              )}
+              <div className="flex gap-2 mt-4">
+                {nextAction && (
+                  <button
+                    onClick={() => handleRideAction(nextAction.action as any)}
+                    className={`btn btn-${nextAction.color} flex-1`}
+                  >
+                    {nextAction.label}
+                  </button>
+                )}
+                {(ride.status === 'PENDING' || ride.status === 'ACCEPTED' || ride.status === 'DRIVER_ARRIVED' || ride.status === 'IN_PROGRESS') && (
+                  <button
+                    onClick={handleCancelRide}
+                    className="btn btn-outline flex-1 text-red-500 border-red-500 hover:bg-red-500 hover:text-white"
+                  >
+                    Cancel Ride
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -282,5 +402,13 @@ export default function DriverTrackRide() {
         </div>
       </div>
     </AuthGuard>
+  )
+}
+
+export default function DriverTrackRide() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <DriverTrackRideContent />
+    </Suspense>
   )
 }

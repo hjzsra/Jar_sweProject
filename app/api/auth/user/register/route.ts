@@ -22,15 +22,15 @@ export async function POST(request: NextRequest) {
     })
 
     // Validate input
-    if (!email || !password || !firstName || !lastName || !phone || !gender || !university) {
+    if (!email?.trim() || !password?.trim() || !firstName?.trim() || !lastName?.trim() || !phone?.trim() || !gender?.trim() || !university?.trim()) {
       console.log('❌ Missing required fields:', {
-        email: !!email,
-        password: !!password,
-        firstName: !!firstName,
-        lastName: !!lastName,
-        phone: !!phone,
-        gender: !!gender,
-        university: !!university
+        email: !!email?.trim(),
+        password: !!password?.trim(),
+        firstName: !!firstName?.trim(),
+        lastName: !!lastName?.trim(),
+        phone: !!phone?.trim(),
+        gender: !!gender?.trim(),
+        university: !!university?.trim()
       })
       return NextResponse.json(
         { error: 'All fields are required' },
@@ -95,6 +95,10 @@ export async function POST(request: NextRequest) {
     const emailSent = await sendOTP(email, otp)
     if (!emailSent) {
       console.error('⚠️  Failed to send OTP email')
+      return NextResponse.json(
+        { error: 'Failed to send verification email. Please try again.' },
+        { status: 500 }
+      )
     } else {
       console.log('✅ OTP email sent')
     }

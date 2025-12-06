@@ -92,13 +92,22 @@ export default function DriverLogin() {
           <button type="submit" className="btn btn-primary w-full" disabled={loading}>
             {loading ? 'Logging in...' : 'Login'}
           </button>
-          <button
-            type="button"
-            onClick={() => router.push('/driver/register')}
-            className="text-secondary text-sm underline w-full"
-          >
-            Don't have an account? Register
-          </button>
+          <div className="flex justify-between items-center text-sm">
+            <button
+              type="button"
+              onClick={() => router.push('/reset-password')}
+              className="text-secondary hover:text-primary underline"
+            >
+              Forgot Password?
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push('/driver/register')}
+              className="text-secondary hover:text-primary underline"
+            >
+              Register
+            </button>
+          </div>
         </form>
       </div>
     </div>

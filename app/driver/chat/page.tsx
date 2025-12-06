@@ -1,13 +1,15 @@
-// Driver chat page - secure live chat with riders
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+// Driver chat page - secure live chat with riders
+export const dynamic = 'force-dynamic';
+
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import AuthGuard from '@/components/AuthGuard'
 import api from '@/lib/api'
 import toast from 'react-hot-toast'
 
-export default function DriverChat() {
+function DriverChatContent() {
   const searchParams = useSearchParams()
   const rideId = searchParams.get('rideId')
   const [messages, setMessages] = useState<any[]>([])
@@ -72,58 +74,76 @@ export default function DriverChat() {
 
   return (
     <AuthGuard requiredRole="driver">
-      <div className="min-h-screen bg-background flex flex-col">
-        <div className="bg-white shadow-sm p-4">
-          <h2 className="text-xl font-bold text-primary">Chat with Riders</h2>
-        </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex ${msg.driverId ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-xs p-3 rounded-lg ${
-                  msg.driverId
-                    ? 'bg-primary text-white'
-                    : 'bg-white border'
-                }`}
-              >
-                <p className="text-sm font-medium mb-1">
-                  {msg.driverId
-                    ? `${msg.driver?.firstName} ${msg.driver?.lastName}`
-                    : `${msg.user?.firstName} ${msg.user?.lastName}`}
-                </p>
-                <p>{msg.message}</p>
-                <p className="text-xs mt-1 opacity-70">
-                  {new Date(msg.createdAt).toLocaleTimeString()}
-                </p>
-              </div>
-            </div>
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
-        <form onSubmit={handleSend} className="bg-white border-t p-4">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              className="input flex-1"
-              placeholder="Type a message..."
-              disabled={loading}
-            />
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[80vh] flex flex-col">
+          <div className="bg-primary text-white p-4 rounded-t-lg">
+            <h2 className="text-lg font-bold">Chat with Riders</h2>
             <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={loading || !newMessage.trim()}
+              onClick={() => window.history.back()}
+              className="absolute top-4 right-4 text-white hover:text-gray-200"
             >
-              Send
+              ✕
             </button>
           </div>
-        </form>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-96">
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`flex ${msg.driverId ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-[200px] p-2 rounded-lg text-sm ${
+                    msg.driverId
+                      ? 'bg-primary text-white'
+                      : 'bg-gray-100 border'
+                  }`}
+                >
+                  <p className="font-medium text-xs mb-1">
+                    {msg.driverId
+                      ? `${msg.driver?.firstName} ${msg.driver?.lastName}`
+                      : `${msg.user?.firstName} ${msg.user?.lastName}`}
+                  </p>
+                  <p>{msg.message}</p>
+                  <p className="text-xs mt-1 opacity-70">
+                    {new Date(msg.createdAt).toLocaleTimeString()}
+                  </p>
+                </div>
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+
+          <form onSubmit={handleSend} className="border-t p-3">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                className="input flex-1 text-sm py-2"
+                placeholder="Type a message..."
+                disabled={loading}
+              />
+              <button
+                type="submit"
+                className="btn btn-primary text-sm px-3 py-2"
+                disabled={loading || !newMessage.trim()}
+              >
+                Send
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </AuthGuard>
   )
 }
 
+
+export default function DriverChat() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <DriverChatContent />
+    </Suspense>
+  )
+}

@@ -15,12 +15,17 @@ export default function UserDashboard() {
   const [tripHistory, setTripHistory] = useState<any[]>([])
   const [nearbyDrivers, setNearbyDrivers] = useState<any[]>([])
   const [activeRide, setActiveRide] = useState<any>(null)
+  const [pendingRequests, setPendingRequests] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     loadUserData()
+    loadPendingRequests()
     // Check for active ride periodically
-    const interval = setInterval(loadActiveRide, 10000) // Every 10 seconds
+    const interval = setInterval(() => {
+      loadActiveRide()
+      loadPendingRequests()
+    }, 10000) // Every 10 seconds
     return () => clearInterval(interval)
   }, [])
 
@@ -47,6 +52,17 @@ export default function UserDashboard() {
     } catch (error) {
       // Silently fail - user might not have an active ride
       console.error('Failed to load active ride')
+    }
+  }
+
+  const loadPendingRequests = async () => {
+    try {
+      // Get rides with PENDING status that belong to this user
+      const response = await api.get('/user/trip-history')
+      const pendingRides = response.data.rides.filter((ride: any) => ride.status === 'PENDING')
+      setPendingRequests(pendingRides)
+    } catch (error) {
+      console.error('Failed to load pending requests')
     }
   }
 
@@ -165,6 +181,32 @@ export default function UserDashboard() {
 
           {activeTab === 'home' && (
             <div className="space-y-4">
+              {pendingRequests.length > 0 && (
+                <div className="card bg-yellow-50 border-yellow-200">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-xl font-bold text-yellow-800">Pending Ride Requests</h3>
+                      <p className="text-sm text-yellow-700">Waiting for driver acceptance</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    {pendingRequests.map((request) => (
+                      <div key={request.id} className="p-3 bg-white rounded-lg border">
+                        <p className="font-medium">
+                          {request.pickupAddress} → {request.dropoffAddress}
+                        </p>
+                        <p className="text-sm text-secondary">
+                          Cost: {request.costPerPassenger?.toFixed(2)} ر.س | Status: Waiting for driver
+                        </p>
+                        <p className="text-xs text-secondary mt-1">
+                          Created: {new Date(request.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {activeRide && (
                 <div className="card bg-accent text-white">
                   <div className="flex justify-between items-start mb-4">
@@ -353,6 +395,7 @@ function BookRideForm({ nearbyDrivers }: { nearbyDrivers: any[] }) {
         >
           <option value="cash">Cash</option>
           <option value="apple_pay">Apple Pay</option>
+          <option value="bank_transfer">Bank Transfer</option>
         </select>
       </div>
       <button type="submit" className="btn btn-primary w-full" disabled={loading}>
@@ -482,6 +525,8 @@ function WalletSection({ balance, onUpdate }: { balance: number; onUpdate: () =>
 
 // Trip History Component
 function TripHistory({ rides }: { rides: any[] }) {
+  const router = useRouter()
+
   if (rides.length === 0) {
     return <p className="text-secondary">No trip history yet.</p>
   }
@@ -489,22 +534,60 @@ function TripHistory({ rides }: { rides: any[] }) {
   return (
     <div className="space-y-4">
       {rides.map((ride) => (
-        <div key={ride.id} className="p-4 border rounded-lg">
+        <div
+          key={ride.id}
+          className="p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+          onClick={() => router.push(`/user/track-ride?rideId=${ride.id}`)}
+        >
           <div className="flex justify-between items-start">
-            <div>
+            <div className="flex-1">
               <p className="font-medium">
                 {ride.pickupAddress} → {ride.dropoffAddress}
               </p>
               <p className="text-sm text-secondary">
                 Driver: {ride.driver?.firstName} {ride.driver?.lastName} ⭐ {ride.driver?.averageRating?.toFixed(1) || 'N/A'}
               </p>
+              {ride.vehicle && (
+                <p className="text-sm text-secondary">
+                  Vehicle: {ride.vehicle.make} {ride.vehicle.model} - {ride.vehicle.color} ({ride.vehicle.licensePlate})
+                </p>
+              )}
               <p className="text-sm text-secondary">
                 Cost: {ride.costPerPassenger.toFixed(2)} ر.س | Status: {ride.status}
               </p>
+              <p className="text-xs text-secondary mt-1">
+                Click to view details and status
+              </p>
             </div>
-            {ride.status === 'completed' && ride.ratings.length === 0 && (
-              <RateRideButton rideId={ride.id} />
-            )}
+            <div className="flex flex-col gap-2">
+              {ride.status === 'COMPLETED' && ride.ratings.length === 0 && (
+                <RateRideButton rideId={ride.id} />
+              )}
+              {['PENDING', 'ACCEPTED', 'DRIVER_ARRIVED', 'IN_PROGRESS'].includes(ride.status) && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    router.push(`/user/track-ride?rideId=${ride.id}`)
+                  }}
+                  className="btn btn-primary text-xs"
+                >
+                  Track Live
+                </button>
+              )}
+              <span
+                className={`px-2 py-1 rounded text-xs font-medium ${
+                  ride.status === 'COMPLETED'
+                    ? 'bg-green-100 text-green-800'
+                    : ride.status === 'CANCELLED'
+                    ? 'bg-red-100 text-red-800'
+                    : ['PENDING', 'ACCEPTED', 'DRIVER_ARRIVED', 'IN_PROGRESS'].includes(ride.status)
+                    ? 'bg-blue-100 text-blue-800'
+                    : 'bg-yellow-100 text-yellow-800'
+                }`}
+              >
+                {ride.status}
+              </span>
+            </div>
           </div>
         </div>
       ))}

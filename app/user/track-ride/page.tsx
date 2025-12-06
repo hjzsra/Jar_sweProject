@@ -1,14 +1,19 @@
-// Track active ride with live map
 'use client'
 
-import { useState, useEffect } from 'react'
+// Track active ride with live map
+export const dynamic = 'force-dynamic';
+
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import dynamicImport from 'next/dynamic'
 import AuthGuard from '@/components/AuthGuard'
-import MapView from '@/components/MapView'
 import api from '@/lib/api'
+import { calculateDistance } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
-export default function TrackRide() {
+const MapView = dynamicImport(() => import('@/components/MapView'), { ssr: false })
+
+function TrackRideContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const rideId = searchParams.get('rideId')
@@ -17,6 +22,9 @@ export default function TrackRide() {
   const [loading, setLoading] = useState(true)
   const [messages, setMessages] = useState<any[]>([])
   const [newMessage, setNewMessage] = useState('')
+  const [sosActive, setSosActive] = useState(false)
+  const [mapKey, setMapKey] = useState(0) // Force map re-render
+  const [lastLocationUpdate, setLastLocationUpdate] = useState<Date | null>(null)
 
   useEffect(() => {
     if (rideId) {
@@ -34,7 +42,12 @@ export default function TrackRide() {
     try {
       const response = await api.get(`/rides/${rideId}`)
       setRide(response.data.ride)
-      setDriverLocation(response.data.driverLocation)
+      const newDriverLocation = response.data.driverLocation
+      if (newDriverLocation && JSON.stringify(newDriverLocation) !== JSON.stringify(driverLocation)) {
+        setDriverLocation(newDriverLocation)
+        setLastLocationUpdate(new Date())
+        setMapKey(prev => prev + 1) // Force map re-render when location changes
+      }
     } catch (error) {
       toast.error('Failed to load ride data')
     } finally {
@@ -68,14 +81,80 @@ export default function TrackRide() {
   }
 
   const handleCancelRide = async () => {
-    if (!confirm('Are you sure you want to cancel this ride?')) return
+    const reasons = [
+      { value: 'DRIVER_TOO_FAR', label: 'Driver is too far away' },
+      { value: 'DRIVER_LATE', label: 'Driver is late' },
+      { value: 'DRIVER_NOT_RESPONDING', label: 'Driver is not responding to chat' },
+      { value: 'CHANGE_OF_PLANS', label: 'Change of plans' },
+      { value: 'OTHER_STUDENT', label: 'Other reason' },
+    ]
 
+    const reasonSelect = document.createElement('select')
+    reasonSelect.innerHTML = reasons.map(r => `<option value="${r.value}">${r.label}</option>`).join('')
+    reasonSelect.style.cssText = 'width: 100%; padding: 8px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px;'
+
+    const modal = document.createElement('div')
+    modal.style.cssText = `
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
+      z-index: 1000;
+    `
+    modal.innerHTML = `
+      <div style="background: white; padding: 20px; border-radius: 8px; max-width: 400px; width: 90%;">
+        <h3 style="margin: 0 0 15px 0;">Cancel Ride</h3>
+        <p style="margin: 0 0 15px 0; color: #666;">Please select a reason for cancellation:</p>
+        <div style="margin-bottom: 20px;">${reasonSelect.outerHTML}</div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button onclick="this.closest('.modal').remove()" style="padding: 8px 16px; border: 1px solid #ccc; background: white; border-radius: 4px; cursor: pointer;">Cancel</button>
+          <button id="confirm-cancel" style="padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">Confirm Cancellation</button>
+        </div>
+      </div>
+    `
+
+    document.body.appendChild(modal)
+
+    document.getElementById('confirm-cancel')!.onclick = async () => {
+      const selectedReason = (modal.querySelector('select') as HTMLSelectElement).value
+
+      try {
+        await api.post('/rides/user/cancel', { rideId, reason: selectedReason })
+        toast.success('Ride cancelled')
+        modal.remove()
+        router.push('/user/dashboard')
+      } catch (error: any) {
+        toast.error(error.response?.data?.error || 'Failed to cancel ride')
+      }
+    }
+  }
+
+  const handleSOS = async () => {
+    // Emergency SOS - send immediately without confirmation for faster response
     try {
-      await api.post('/rides/user/reject', { rideId })
-      toast.success('Ride cancelled')
-      router.push('/user/dashboard')
+      // Get current location for emergency services
+      let location = null
+      try {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 })
+        })
+        location = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude
+        }
+      } catch (locationError) {
+        console.warn('Could not get location for SOS:', locationError)
+      }
+
+      await api.post('/sos', {
+        rideId,
+        message: 'Emergency SOS from passenger during ride',
+        latitude: location?.latitude,
+        longitude: location?.longitude
+      })
+      setSosActive(true)
+      toast.success('🚨 SOS ALERT SENT! Emergency services have been notified. Help is on the way.')
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to cancel ride')
+      toast.error(error.response?.data?.error || 'Failed to send SOS alert. Please try again or call emergency services directly.')
+      console.error('SOS error:', error)
     }
   }
 
@@ -119,7 +198,7 @@ export default function TrackRide() {
   if (driverLocation) {
     markers.push({
       position: { lat: driverLocation.lat, lng: driverLocation.lng },
-      title: 'Driver',
+      title: `Driver Location - Last updated: ${lastLocationUpdate ? lastLocationUpdate.toLocaleTimeString() : 'Just now'}`,
       type: 'driver' as const,
     })
   }
@@ -135,9 +214,9 @@ export default function TrackRide() {
       case 'IN_PROGRESS':
         return 'Trip in progress'
       case 'COMPLETED':
-        return 'Trip completed'
+        return 'Trip completed successfully'
       case 'CANCELLED':
-        return 'Trip cancelled'
+        return 'Trip was cancelled - no driver available within 5 minutes'
       default:
         return 'Unknown status'
     }
@@ -162,8 +241,52 @@ export default function TrackRide() {
           {/* Map Section */}
           <div className="lg:col-span-2 space-y-4">
             <div className="card">
-              <h2 className="text-xl font-bold mb-4">Live Tracking</h2>
-              <MapView markers={markers} showRoute={true} height="500px" />
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold">🚗 Live Driver Tracking</h2>
+                <div className="text-right">
+                  <div className="text-sm font-medium text-primary">
+                    {driverLocation ? '🟢 LIVE TRACKING ACTIVE' : '⏳ Waiting for driver location...'}
+                  </div>
+                  {lastLocationUpdate && (
+                    <div className="text-xs text-secondary">
+                      Last update: {lastLocationUpdate.toLocaleTimeString()}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center space-x-2 text-sm text-blue-800">
+                  <span>📍</span>
+                  <span>Driver location updates every 5 seconds</span>
+                  {driverLocation && (
+                    <>
+                      <span>•</span>
+                      <span className="font-medium">Currently at: {driverLocation.lat.toFixed(4)}, {driverLocation.lng.toFixed(4)}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <MapView
+                key={mapKey}
+                markers={markers}
+                showRoute={ride.status === 'IN_PROGRESS'}
+                height="500px"
+              />
+
+              {driverLocation && (
+                <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded text-center">
+                  <span className="text-sm text-green-800 font-medium">
+                    🎯 Driver is {calculateDistance(
+                      driverLocation.lat,
+                      driverLocation.lng,
+                      ride.status === 'IN_PROGRESS' ? ride.dropoffLatitude : ride.pickupLatitude,
+                      ride.status === 'IN_PROGRESS' ? ride.dropoffLongitude : ride.pickupLongitude
+                    ).toFixed(1)} km away
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Ride Status */}
@@ -203,9 +326,9 @@ export default function TrackRide() {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-secondary">Car:</span>
+                  <span className="text-secondary">Vehicle:</span>
                   <span className="font-medium">
-                    {ride.driver?.carModel} - {ride.driver?.carColor} ({ride.driver?.carPlateNumber})
+                    {ride.vehicle?.make} {ride.vehicle?.model} - {ride.vehicle?.color} ({ride.vehicle?.licensePlate})
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -218,14 +341,38 @@ export default function TrackRide() {
                 </div>
               </div>
 
-              {ride.status === 'PENDING' && (
-                <button
-                  onClick={handleCancelRide}
-                  className="btn btn-outline w-full mt-4 text-red-500 border-red-500 hover:bg-red-500 hover:text-white"
-                >
-                  Cancel Ride
-                </button>
-              )}
+              <div className="flex gap-2 mt-4">
+                {(ride.status === 'PENDING' || ride.status === 'ACCEPTED' || ride.status === 'DRIVER_ARRIVED') && (
+                  <button
+                    onClick={handleCancelRide}
+                    className="btn btn-outline flex-1 text-red-500 border-red-500 hover:bg-red-500 hover:text-white"
+                  >
+                    Cancel Ride
+                  </button>
+                )}
+                {(ride.status === 'ACCEPTED' || ride.status === 'DRIVER_ARRIVED' || ride.status === 'IN_PROGRESS') && !sosActive && (
+                  <button
+                    onClick={handleSOS}
+                    className="btn flex-1 bg-red-600 hover:bg-red-700 text-white font-bold"
+                  >
+                    🚨 SOS Emergency
+                  </button>
+                )}
+                {sosActive && (
+                  <div className="flex-1 p-3 bg-red-100 border border-red-300 rounded-lg text-center">
+                    <p className="text-red-800 font-bold">SOS ACTIVE</p>
+                    <p className="text-sm text-red-600">Help is on the way</p>
+                  </div>
+                )}
+                {(ride.status === 'COMPLETED' || ride.status === 'CANCELLED') && (
+                  <button
+                    onClick={() => router.push('/user/book-ride')}
+                    className="btn btn-primary flex-1"
+                  >
+                    Book Another Ride
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -279,5 +426,12 @@ export default function TrackRide() {
         </div>
       </div>
     </AuthGuard>
+  )
+}
+export default function TrackRide() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <TrackRideContent />
+    </Suspense>
   )
 }

@@ -1,6 +1,8 @@
 // Get nearby drivers API
 // Returns available drivers within a specified radius
 import { NextRequest, NextResponse } from 'next/server'
+
+export const dynamic = 'force-dynamic'
 import { prisma } from '@/lib/prisma'
 import { verifyToken, getTokenFromRequest } from '@/lib/auth'
 import { calculateDistance } from '@/lib/utils'
@@ -84,16 +86,23 @@ export async function GET(request: NextRequest) {
         currentLongitude: true,
         isAvailable: true,
         averageRating: true,
-        carModel: true,
-        carColor: true,
-        carPlateNumber: true,
         gender: true,
+        vehicles: {
+          where: { isActive: true },
+          select: {
+            make: true,
+            model: true,
+            color: true,
+            licensePlate: true,
+          },
+          take: 1, // Get the active vehicle
+        },
       },
     })
 
     // Filter drivers by distance and sort by proximity
     const nearbyDrivers = drivers
-      .map((driver) => {
+      .map((driver: any) => {
         if (
           driver.currentLatitude === null ||
           driver.currentLongitude === null
@@ -106,10 +115,22 @@ export async function GET(request: NextRequest) {
           driver.currentLatitude,
           driver.currentLongitude
         )
-        return { ...driver, distance }
+
+        // Get vehicle info from the first active vehicle
+        const vehicle = driver.vehicles?.[0] || null
+
+        return {
+          ...driver,
+          distance,
+          carModel: vehicle ? `${vehicle.make} ${vehicle.model}` : 'Unknown',
+          carColor: vehicle?.color || 'Unknown',
+          carPlateNumber: vehicle?.licensePlate || 'Unknown',
+          // Remove vehicles array from response
+          vehicles: undefined,
+        }
       })
-      .filter((d): d is typeof drivers[number] & { distance: number } => d !== null && d.distance <= radius)
-      .sort((a, b) => a.distance - b.distance)
+      .filter((d: any): d is typeof drivers[number] & { distance: number } => d !== null && d.distance <= radius)
+      .sort((a: any, b: any) => a.distance - b.distance)
 
     return NextResponse.json({
       drivers: nearbyDrivers,

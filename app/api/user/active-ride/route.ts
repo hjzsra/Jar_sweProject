@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyToken } from '@/lib/auth'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -16,11 +18,16 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = decoded.userId
+    console.log('Getting active ride for user:', userId)
 
     // Get active ride (not completed or cancelled)
     const activeRide = await prisma.ride.findFirst({
       where: {
-        passengerId: userId,
+        passengers: {
+          some: {
+            id: userId,
+          },
+        },
         status: {
           in: ['PENDING', 'ACCEPTED', 'DRIVER_ARRIVED', 'IN_PROGRESS'],
         },
@@ -31,10 +38,14 @@ export async function GET(request: NextRequest) {
             id: true,
             firstName: true,
             lastName: true,
-            carModel: true,
-            carColor: true,
-            carPlateNumber: true,
             phone: true,
+          },
+        },
+        passengers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
           },
         },
       },
@@ -43,7 +54,22 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    return NextResponse.json({ ride: activeRide })
+    // Get vehicle information if driver exists
+    let vehicle = null
+    if (activeRide?.driverId) {
+      vehicle = await prisma.vehicle.findFirst({
+        where: { driverId: activeRide.driverId, isActive: true },
+        select: {
+          make: true,
+          model: true,
+          color: true,
+          licensePlate: true,
+        },
+      })
+    }
+
+    console.log('Active ride found:', activeRide?.id, 'status:', activeRide?.status)
+    return NextResponse.json({ ride: activeRide, vehicle })
   } catch (error) {
     console.error('Get active ride error:', error)
     return NextResponse.json(

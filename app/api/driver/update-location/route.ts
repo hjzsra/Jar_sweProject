@@ -50,14 +50,33 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Driver found, updating location')
 
-    // Update driver location
-    const driver = await prisma.driver.update({
-      where: { id: payload.userId },
-      data: {
-        currentLatitude: latitude,
-        currentLongitude: longitude,
-        ...(isAvailable !== undefined && { isAvailable }),
-      },
+    // Update driver location in both tables
+    const result = await prisma.$transaction(async (tx) => {
+      // Update driver table
+      const driver = await tx.driver.update({
+        where: { id: payload.userId },
+        data: {
+          currentLatitude: latitude,
+          currentLongitude: longitude,
+          ...(isAvailable !== undefined && { isAvailable }),
+        },
+      })
+
+      // Update or create driver location for geospatial queries
+      const driverLocation = await tx.driverLocation.upsert({
+        where: { driverId: payload.userId },
+        update: {
+          lat: latitude,
+          lng: longitude,
+        },
+        create: {
+          driverId: payload.userId!,
+          lat: latitude,
+          lng: longitude,
+        },
+      })
+
+      return { driver, driverLocation }
     })
 
     console.log('✅ Location updated successfully')
@@ -65,10 +84,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       message: 'Location updated',
       driver: {
-        id: driver.id,
-        currentLatitude: driver.currentLatitude,
-        currentLongitude: driver.currentLongitude,
-        isAvailable: driver.isAvailable,
+        id: result.driver.id,
+        currentLatitude: result.driver.currentLatitude,
+        currentLongitude: result.driver.currentLongitude,
+        isAvailable: result.driver.isAvailable,
       },
     })
   } catch (error) {

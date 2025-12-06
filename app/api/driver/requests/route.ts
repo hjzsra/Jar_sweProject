@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // Driver ride requests API
 // Get pending ride requests for driver in their area
 import { NextRequest, NextResponse } from 'next/server'
@@ -51,52 +53,53 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const radius = parseFloat(searchParams.get('radius') || '5') // Default 5km
 
-    // Get pending rides with same gender (passenger gender must match driver gender)
-    // Using PENDING instead of 'pending' based on Prisma enum
-    const pendingRides = await prisma.ride.findMany({
+    // Get ride requests for this driver
+    const rideRequests = await prisma.rideRequest.findMany({
       where: {
-        status: 'PENDING', // Changed from 'pending' to 'PENDING'
-        passenger: {
-          gender: driver.gender, // Only show rides from passengers of same gender
-        },
+        driverId: payload.userId,
+        status: 'PENDING', // Only show pending requests for this driver
       },
       include: {
-        passenger: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            phone: true,
-            gender: true,
+        ride: {
+          include: {
+            passengers: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                phone: true,
+                gender: true,
+              },
+            },
           },
         },
       },
     })
 
-    console.log(`📋 Found ${pendingRides.length} pending rides`)
+    console.log(`📋 Found ${rideRequests.length} ride requests`)
 
-    // Filter by distance
-    const nearbyRequests = pendingRides
-      .map((ride:any) => {
-        const distance = calculateDistance(
-          driver.currentLatitude!,
-          driver.currentLongitude!,
-          ride.pickupLatitude,
-          ride.pickupLongitude
+    // Add distance if driver location is set
+    const requestsWithDistance = rideRequests.map((request: any) => {
+      let distance = null
+      if (driver.currentLatitude && driver.currentLongitude) {
+        distance = calculateDistance(
+          driver.currentLatitude,
+          driver.currentLongitude,
+          request.ride.pickupLatitude,
+          request.ride.pickupLongitude
         )
-        return {
-          ...ride,
-          distance,
-        }
-      })
-      .filter((ride) => ride.distance <= radius)
-      .sort((a, b) => a.distance - b.distance)
+      }
+      return {
+        ...request.ride,
+        distance,
+      }
+    }).sort((a: any, b: any) => (a.distance || 0) - (b.distance || 0))
 
-    console.log(`✅ Found ${nearbyRequests.length} nearby requests within ${radius}km`)
+    console.log(`✅ Returning ${requestsWithDistance.length} ride requests`)
 
     return NextResponse.json({
-      requests: nearbyRequests,
-      count: nearbyRequests.length,
+      requests: requestsWithDistance,
+      count: requestsWithDistance.length,
     })
   } catch (error) {
     console.error('❌ Get driver requests error:', error)

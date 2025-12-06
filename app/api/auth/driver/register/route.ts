@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyLicense } from '@/lib/mot-api'
+import { generateOTP, sendOTP } from '@/lib/email'
 import bcrypt from 'bcryptjs'
 import { isValidUniversityEmail } from '@/lib/utils'
 
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
     } = body
 
     // Validate input
-    if (!password || !firstName || !lastName || !gender || !licenseNumber || !carModel || !carColor || !carPlateNumber) {
+    if (!password || !firstName || !lastName || !gender || !licenseNumber) {
       return NextResponse.json(
         { error: 'All required fields must be provided' },
         { status: 400 }
@@ -103,25 +104,68 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    // Create driver
-    const driver = await prisma.driver.create({
-      data: {
-        email: email || null,
-        phone: phone || null,
-        password: hashedPassword,
-        firstName,
-        lastName,
-        gender,
-        licenseNumber,
-        licenseVerified: true,
-        isStudent: isStudent || false,
-        university: isStudent ? university : null,
-        carModel,
-        carColor,
-        carPlateNumber,
-        isAvailable: false,
-      },
+    // Create driver and vehicle in a transaction
+    const driver = await prisma.$transaction(async (tx: any) => {
+      // Create driver
+      const driverData = await tx.driver.create({
+        data: {
+          email: email || null,
+          phone: phone || null,
+          password: hashedPassword,
+          firstName,
+          lastName,
+          gender,
+          licenseNumber,
+          licenseVerified: true,
+          isStudent: isStudent || false,
+          university: isStudent ? university : null,
+          emailVerified: !isStudent || !email, // Non-students or students without email are verified by default
+          isAvailable: false,
+        },
+      })
+
+      // Create vehicle if car details provided
+      if (carModel && carColor && carPlateNumber) {
+        await tx.vehicle.create({
+          data: {
+            driverId: driverData.id,
+            make: carModel.split(' ')[0] || carModel, // Extract make from model
+            model: carModel,
+            year: new Date().getFullYear(), // Default to current year
+            color: carColor,
+            licensePlate: carPlateNumber,
+          },
+        })
+      }
+
+      return driverData
     })
+
+    // Send email verification for student drivers
+    if (isStudent && email) {
+      const otp = generateOTP()
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
+
+      // Save OTP
+      await prisma.otpCode.create({
+        data: {
+          userId: null, // Not associated with a user yet
+          destination: email,
+          code: otp,
+          purpose: 'driver_email_verification',
+          expiresAt,
+        },
+      })
+
+      // Send verification email
+      await sendOTP(email, otp)
+
+      return NextResponse.json({
+        message: 'Driver registration successful. Please check your email for verification code.',
+        driverId: driver.id,
+        requiresEmailVerification: true,
+      })
+    }
 
     return NextResponse.json({
       message: 'Driver registration successful. License verified.',

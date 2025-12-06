@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { email, otpCode } = body
 
-    if (!email || !otpCode) {
+    if (!email?.trim() || !otpCode?.trim()) {
       return NextResponse.json(
         { error: 'Email and OTP code are required' },
         { status: 400 }
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
 
     // Find user
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { email: email.trim() },
     })
 
     if (!user) {
