@@ -67,17 +67,17 @@ describe('MapView', () => {
     // Reset useMapEvents mock
     mockUseMapEvents.mockReturnValue(null)
     // Reset useState to return mounted
-    React.useState.mockReturnValue([true, jest.fn()])
+    ;(React.useState as jest.Mock).mockReturnValue([true, jest.fn()])
   })
 
   it('renders loading state initially', () => {
-    React.useState = jest.fn().mockReturnValue([false, jest.fn()])
+    ;(React.useState as jest.Mock).mockReturnValue([false, jest.fn()])
 
     render(<MapView />)
 
     expect(screen.getByText('Loading Map...')).toBeTruthy()
     const loadingDiv = screen.getByText('Loading Map...').parentElement as HTMLElement
-    expect(loadingDiv.getAttribute('style')).toContain('height: 400px')
+    expect(loadingDiv.style.height).toBe('400px')
   })
 
   it('renders map with default props after mounting', async () => {

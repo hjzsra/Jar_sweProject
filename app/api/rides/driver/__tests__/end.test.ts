@@ -44,9 +44,15 @@ jest.mock('next/server', () => ({
   },
 }))
 
-import { prisma as mockPrisma } from '@/lib/prisma'
-import { verifyToken as mockVerifyToken } from '@/lib/auth'
-import { NextResponse as mockNextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import { verifyToken } from '@/lib/auth'
+import { NextResponse } from 'next/server'
+
+const mockPrisma = prisma as jest.Mocked<typeof prisma>
+const mockPrismaRideFindUnique = mockPrisma.ride.findUnique as jest.MockedFunction<typeof mockPrisma.ride.findUnique>
+const mockPrismaRideUpdate = mockPrisma.ride.update as jest.MockedFunction<typeof mockPrisma.ride.update>
+const mockVerifyToken = verifyToken as jest.MockedFunction<typeof verifyToken>
+const mockNextResponse = NextResponse as jest.Mocked<typeof NextResponse>
 
 // Mock request type (removed - not used)
 
@@ -141,7 +147,7 @@ describe('/api/rides/driver/end', () => {
       role: 'driver',
     })
 
-    mockPrisma.ride.findUnique.mockResolvedValue(null)
+    ;(mockPrisma.ride.findUnique as any).mockResolvedValue(null)
 
     const mockRequest = {
       headers: {
@@ -181,8 +187,8 @@ describe('/api/rides/driver/end', () => {
       role: 'driver',
     })
 
-    mockPrisma.ride.findUnique.mockResolvedValue(mockRide)
-    mockPrisma.ride.update.mockResolvedValue({
+    ;(mockPrisma.ride.findUnique as any).mockResolvedValue(mockRide)
+    ;(mockPrisma.ride.update as any).mockResolvedValue({
       ...mockRide,
       status: 'COMPLETED',
       tripEndedAt: new Date(),

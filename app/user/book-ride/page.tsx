@@ -22,7 +22,7 @@ export default function BookRide() {
   const [dropoffLocation, setDropoffLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [pickupAddress, setPickupAddress] = useState('')
   const [dropoffAddress, setDropoffAddress] = useState('')
-  // Removed driver selection
+ 
   const [passengers, setPassengers] = useState<any[]>([])
   const [passengerEmails, setPassengerEmails] = useState<string[]>([])
   const [formData, setFormData] = useState({
