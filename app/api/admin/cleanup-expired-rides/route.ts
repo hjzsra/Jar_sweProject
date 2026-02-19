@@ -1,5 +1,6 @@
 // Admin API to cleanup expired ride requests
 // Cancels rides that have been pending for more than 5 minutes
+export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyToken } from '@/lib/auth'
