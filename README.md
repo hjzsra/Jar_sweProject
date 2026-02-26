@@ -46,7 +46,13 @@ npx prisma generate
 npm run dev
 ```
 
+
+
 5. Open [http://localhost:3000](http://localhost:3000)
+
+6. try  here :
+https://jar-swe-project-gt3l-dzf06wplu-saras-projects-bd6e2279.vercel.app/
+
 
 ## Project Structure
 
