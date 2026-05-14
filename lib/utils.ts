@@ -25,8 +25,8 @@ function toRad(degrees: number): number {
 
 // Validate university email format
 export function isValidUniversityEmail(email: string): boolean {
-  // Allow any Saudi or Qatar educational institution
-  const eduPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(edu\.sa|edu\.qa)$/i
+  // Allow any Saudi  educational institution
+  const eduPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(edu\.sa)$/i
   return eduPattern.test(email)
 }
 
