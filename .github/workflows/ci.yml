@@ -1,0 +1,87 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Setup test database
+      run: |
+        npx prisma generate
+        npx prisma migrate deploy
+        npm run db:seed
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+
+    - name: Run TypeScript check
+      run: npx tsc --noEmit
+
+    - name: Run unit tests
+      run: npm run test
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        NODE_ENV: test
+
+    - name: Build application
+      run: npm run build
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+
+    - name: Run E2E tests
+      run: npm run test:e2e
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+
+  deploy-staging:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+
+    steps:
+    - name: Deploy to staging
+      run: |
+        echo "🚀 Deploying to staging environment"
+        echo "Add your staging deployment commands here"
+        # Example: Deploy to Vercel, Railway, or your hosting provider
+
+  deploy-production:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+    - name: Deploy to production
+      run: |
+        echo "🚀 Deploying to production environment"
+        echo "Add your production deployment commands here"
+        # Example: Deploy to Vercel, Railway, or your hosting provider

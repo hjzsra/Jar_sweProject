@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Minimalist global styles */
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  background-color: #F5F7FA;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Simple button styles */
+.btn {
+  @apply px-4 py-2 rounded-lg font-medium transition-colors;
+}
+
+.btn-primary {
+  @apply bg-primary text-white hover:bg-blue-600;
+}
+
+.btn-secondary {
+  @apply bg-secondary text-white hover:bg-gray-600;
+}
+
+.btn-outline {
+  @apply border-2 border-primary text-primary hover:bg-primary hover:text-white;
+}
+
+/* Simple input styles */
+.input {
+  @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
+}
+
+/* Card styles */
+.card {
+  @apply bg-white rounded-lg shadow-sm p-6;
+}
+

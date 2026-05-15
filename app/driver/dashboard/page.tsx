@@ -1,0 +1,637 @@
+// Driver dashboard page
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import AuthGuard from '@/components/AuthGuard'
+import api from '@/lib/api'
+import toast from 'react-hot-toast'
+
+export default function DriverDashboard() {
+  const router = useRouter()
+  const [activeTab, setActiveTab] = useState<'home' | 'profile' | 'requests' | 'active' | 'history'>('home')
+  const [driver, setDriver] = useState<any>(null)
+  const [rideRequests, setRideRequests] = useState<any[]>([])
+  const [activeRides, setActiveRides] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [isAvailable, setIsAvailable] = useState(false)
+
+  useEffect(() => {
+    loadDriverData()
+  }, [])
+
+  // Only start location updates when driver becomes available
+  useEffect(() => {
+    if (isAvailable) {
+      const interval = setInterval(updateLocation, 30000) // Every 30 seconds
+      return () => clearInterval(interval)
+    }
+  }, [isAvailable])
+
+  // Load data when tabs are activated, but avoid duplicate calls
+  useEffect(() => {
+    if (activeTab === 'requests' && rideRequests.length === 0) {
+      loadRideRequests()
+    }
+    if (activeTab === 'active' && activeRides.length === 0) {
+      loadActiveRides()
+    }
+  }, [activeTab, rideRequests.length, activeRides.length])
+
+  const loadDriverData = async () => {
+    try {
+      const driverData = JSON.parse(localStorage.getItem('driver') || '{}')
+      setDriver(driverData)
+      setIsAvailable(driverData.isAvailable || false)
+    } catch (error) {
+      toast.error('Failed to load driver data')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const updateLocation = async () => {
+    if (!isAvailable) return
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          await api.post('/driver/update-location', {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            isAvailable,
+          })
+        } catch (error) {
+          console.error('Failed to update location')
+        }
+      },
+      () => {}
+    )
+  }
+
+  const toggleAvailability = async () => {
+    const newAvailability = !isAvailable
+    setIsAvailable(newAvailability)
+
+    // Update localStorage immediately
+    const updatedDriver = { ...driver, isAvailable: newAvailability }
+    setDriver(updatedDriver)
+    localStorage.setItem('driver', JSON.stringify(updatedDriver))
+
+    // Only get location if becoming available
+    if (newAvailability) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          try {
+            await api.post('/driver/update-location', {
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              isAvailable: newAvailability,
+            })
+            toast.success('You are now available')
+          } catch (error) {
+            toast.error('Failed to update availability')
+            // Revert on error
+            setIsAvailable(!newAvailability)
+            const revertedDriver = { ...driver, isAvailable: !newAvailability }
+            setDriver(revertedDriver)
+            localStorage.setItem('driver', JSON.stringify(revertedDriver))
+          }
+        },
+        () => {
+          toast.error('Please enable location services')
+          // Revert on error
+          setIsAvailable(!newAvailability)
+          const revertedDriver = { ...driver, isAvailable: !newAvailability }
+          setDriver(revertedDriver)
+          localStorage.setItem('driver', JSON.stringify(revertedDriver))
+        }
+      )
+    } else {
+      // Just update availability status when going offline
+      try {
+        await api.post('/driver/update-location', {
+          isAvailable: newAvailability,
+        })
+        toast.success('You are now offline')
+      } catch (error) {
+        toast.error('Failed to update availability')
+        // Revert on error
+        setIsAvailable(!newAvailability)
+        const revertedDriver = { ...driver, isAvailable: !newAvailability }
+        setDriver(revertedDriver)
+        localStorage.setItem('driver', JSON.stringify(revertedDriver))
+      }
+    }
+  }
+
+  const loadRideRequests = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true)
+    try {
+      const response = await api.get('/driver/requests?radius=5')
+      setRideRequests(response.data.requests)
+    } catch (error) {
+      toast.error('Failed to load ride requests')
+    } finally {
+      if (showLoading) setLoading(false)
+    }
+  }, [])
+
+  const loadActiveRides = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true)
+    try {
+      const response = await api.get('/driver/active-rides')
+      setActiveRides(response.data.rides)
+    } catch (error) {
+      toast.error('Failed to load active rides')
+    } finally {
+      if (showLoading) setLoading(false)
+    }
+  }, [])
+
+  const refreshCurrentTab = useCallback(() => {
+    if (activeTab === 'requests') {
+      loadRideRequests(false)
+    } else if (activeTab === 'active') {
+      loadActiveRides(false)
+    }
+  }, [activeTab, loadRideRequests, loadActiveRides])
+
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('role')
+    localStorage.removeItem('driver')
+    router.push('/')
+  }
+
+  if (loading) {
+    return (
+      <AuthGuard requiredRole="driver">
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="text-secondary">Loading...</div>
+        </div>
+      </AuthGuard>
+    )
+  }
+
+  return (
+    <AuthGuard requiredRole="driver">
+      <div className="min-h-screen bg-background">
+        <nav className="bg-white shadow-sm p-4">
+          <div className="max-w-7xl mx-auto flex justify-between items-center">
+            <h1 className="text-xl font-bold text-primary">Driver Dashboard</h1>
+            <div className="flex gap-4 items-center">
+              <button
+                onClick={toggleAvailability}
+                className={`btn ${isAvailable ? 'btn-primary' : 'btn-secondary'}`}
+              >
+                {isAvailable ? 'Available' : 'Offline'}
+              </button>
+              <span className="text-secondary">{driver?.firstName} {driver?.lastName}</span>
+              <button onClick={handleLogout} className="btn btn-outline">
+                Logout
+              </button>
+            </div>
+          </div>
+        </nav>
+
+        <div className="max-w-7xl mx-auto p-4">
+          <div className="flex gap-4 mb-6 flex-wrap">
+            <button
+              onClick={() => setActiveTab('home')}
+              className={`btn ${activeTab === 'home' ? 'btn-primary' : 'btn-outline'}`}
+            >
+              Home
+            </button>
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`btn ${activeTab === 'profile' ? 'btn-primary' : 'btn-outline'}`}
+            >
+              Profile
+            </button>
+            <button
+              onClick={() => setActiveTab('requests')}
+              className={`btn ${activeTab === 'requests' ? 'btn-primary' : 'btn-outline'}`}
+            >
+              Ride Requests
+            </button>
+            <button
+              onClick={() => setActiveTab('active')}
+              className={`btn ${activeTab === 'active' ? 'btn-primary' : 'btn-outline'}`}
+            >
+              Active Rides
+            </button>
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`btn ${activeTab === 'history' ? 'btn-primary' : 'btn-outline'}`}
+            >
+              History
+            </button>
+          </div>
+
+          {activeTab === 'home' && (
+            <div className="card">
+              <h2 className="text-2xl font-bold mb-4">Welcome, {driver?.firstName}!</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 bg-primary text-white rounded-lg">
+                  <p className="text-sm">Average Rating</p>
+                  <p className="text-2xl font-bold">{driver?.averageRating?.toFixed(1) || '0.0'}</p>
+                </div>
+                <div className="p-4 bg-accent text-white rounded-lg">
+                  <p className="text-sm">Total Rides</p>
+                  <p className="text-2xl font-bold">0</p>
+                </div>
+                <div className="p-4 bg-secondary text-white rounded-lg">
+                  <p className="text-sm">Status</p>
+                  <p className="text-lg font-bold">{isAvailable ? 'Available' : 'Offline'}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'profile' && (
+            <div className="card">
+              <h2 className="text-2xl font-bold mb-4">Driver Profile</h2>
+              <DriverProfile driver={driver} onUpdate={loadDriverData} />
+            </div>
+          )}
+
+          {activeTab === 'requests' && (
+            <div className="card">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold">Ride Requests</h2>
+                <button
+                  onClick={() => loadRideRequests(false)}
+                  className="btn btn-outline text-sm"
+                  disabled={loading}
+                >
+                  {loading ? 'Refreshing...' : 'Refresh'}
+                </button>
+              </div>
+              {!isAvailable && (
+                <div className="mb-4 p-4 bg-yellow-100 text-yellow-800 rounded-lg">
+                  Turn on availability to see ride requests
+                </div>
+              )}
+              {rideRequests.length === 0 ? (
+                <p className="text-secondary">No ride requests available</p>
+              ) : (
+                <div className="space-y-4">
+                  {rideRequests.map((request) => (
+                    <RideRequestCard
+                      key={request.id}
+                      request={request}
+                      onUpdate={() => loadRideRequests(false)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'active' && (
+            <div className="card">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold">Active Rides</h2>
+                <button
+                  onClick={() => loadActiveRides(false)}
+                  className="btn btn-outline text-sm"
+                  disabled={loading}
+                >
+                  {loading ? 'Refreshing...' : 'Refresh'}
+                </button>
+              </div>
+              {activeRides.length === 0 ? (
+                <p className="text-secondary">No active rides</p>
+              ) : (
+                <div className="space-y-4">
+                  {activeRides.map((ride) => (
+                    <ActiveRideCard key={ride.id} ride={ride} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'history' && (
+            <div className="card">
+              <h2 className="text-2xl font-bold mb-4">Ride History</h2>
+              <p className="text-secondary">Ride history will be displayed here</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </AuthGuard>
+  )
+}
+
+// Ride Request Card Component
+function RideRequestCard({ request, onUpdate }: { request: any; onUpdate: () => void }) {
+  const [loading, setLoading] = useState(false)
+
+  const handleAccept = async () => {
+    setLoading(true)
+    try {
+      await api.post('/rides/driver/accept', { rideId: request.id })
+      toast.success('Ride accepted!')
+      onUpdate()
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to accept ride')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleReject = async () => {
+    const reason = prompt('Reason for rejection (optional):')
+    setLoading(true)
+    try {
+      await api.post('/rides/driver/reject', { rideId: request.id, reason })
+      toast.success('Ride rejected')
+      onUpdate()
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to reject ride')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="p-4 border rounded-lg">
+      <div className="flex justify-between items-start">
+        <div className="flex-1">
+          <p className="font-medium">
+            {request.pickupAddress} → {request.dropoffAddress}
+          </p>
+          <p className="text-sm text-secondary">
+            Passengers ({request.passengers.length}): {request.passengers.map((p: any) => `${p.firstName} ${p.lastName}`).join(', ')}
+          </p>
+          <p className="text-sm text-secondary">
+            Distance: {request.distance?.toFixed(2)} km | Total Cost: {request.cost?.toFixed(2)} ر.س | Per Passenger: {request.costPerPassenger?.toFixed(2)} ر.س | Payment: {request.paymentMethod === 'CASH' ? 'Cash' : request.paymentMethod === 'APPLE_PAY' ? 'Apple Pay' : request.paymentMethod}
+          </p>
+          {request.isPreBooked && request.scheduledTime && (
+            <p className="text-sm text-secondary">
+              Scheduled: {new Date(request.scheduledTime).toLocaleString()}
+            </p>
+          )}
+        </div>
+        <div className="flex gap-2 ml-4">
+          <button
+            onClick={handleAccept}
+            className="btn btn-primary"
+            disabled={loading}
+          >
+            Accept
+          </button>
+          <button
+            onClick={handleReject}
+            className="btn btn-outline"
+            disabled={loading}
+          >
+            Reject
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Driver Profile Component
+function DriverProfile({ driver, onUpdate }: { driver: any; onUpdate: () => void }) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [formData, setFormData] = useState({
+    firstName: driver?.firstName || '',
+    lastName: driver?.lastName || '',
+    phone: driver?.phone || '',
+  })
+  const [loading, setLoading] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+
+    try {
+      await api.put('/driver/profile', formData)
+      toast.success('Profile updated!')
+      onUpdate() // Refresh driver data
+      setIsEditing(false)
+    } catch (error) {
+      toast.error('Failed to update profile')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCancel = () => {
+    setFormData({
+      firstName: driver?.firstName || '',
+      lastName: driver?.lastName || '',
+      phone: driver?.phone || '',
+    })
+    setIsEditing(false)
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-bold">Personal Information</h3>
+        {!isEditing && (
+          <button
+            onClick={() => setIsEditing(true)}
+            className="btn btn-primary"
+          >
+            Edit Profile
+          </button>
+        )}
+      </div>
+
+      {isEditing ? (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Email</label>
+            <input type="email" value={driver?.email || driver?.phone || ''} className="input" disabled />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">First Name</label>
+              <input
+                type="text"
+                value={formData.firstName}
+                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                className="input"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Last Name</label>
+              <input
+                type="text"
+                value={formData.lastName}
+                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                className="input"
+                required
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Phone</label>
+            <input
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              className="input"
+              required
+            />
+          </div>
+          <div className="flex gap-2">
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? 'Updating...' : 'Update Profile'}
+            </button>
+            <button type="button" onClick={handleCancel} className="btn btn-outline">
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-secondary">Email</label>
+                  <p className="text-lg">{driver?.email || driver?.phone || 'N/A'}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-secondary">First Name</label>
+                    <p className="text-lg">{driver?.firstName || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-secondary">Last Name</label>
+                    <p className="text-lg">{driver?.lastName || 'N/A'}</p>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-secondary">Phone</label>
+                  <p className="text-lg">{driver?.phone || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-secondary">Gender</label>
+                  <p className="text-lg">{driver?.gender || 'N/A'}</p>
+                </div>
+                {driver?.university && (
+                  <div>
+                    <label className="block text-sm font-medium text-secondary">University</label>
+                    <p className="text-lg">{driver.university}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-bold mb-4">Driver Information</h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-secondary">License Number</label>
+                  <p className="text-lg">{driver?.licenseNumber || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-secondary">License Verified</label>
+                  <p className={`text-lg ${driver?.licenseVerified ? 'text-green-600' : 'text-red-600'}`}>
+                    {driver?.licenseVerified ? '✓ Verified' : '✗ Not Verified'}
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-secondary">Student Driver</label>
+                  <p className="text-lg">{driver?.isStudent ? 'Yes' : 'No'}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-secondary">Average Rating</label>
+                  <p className="text-lg">⭐ {driver?.averageRating?.toFixed(1) || '0.0'}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-secondary">Total Ratings</label>
+                  <p className="text-lg">{driver?.totalRatings || 0}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-bold mb-4">Vehicle Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-secondary">Make</label>
+                <p className="text-lg">{driver?.carModel?.split(' ')[0] || 'N/A'}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-secondary">Model</label>
+                <p className="text-lg">{driver?.carModel?.split(' ').slice(1).join(' ') || 'N/A'}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-secondary">Color</label>
+                <p className="text-lg">{driver?.carColor || 'N/A'}</p>
+              </div>
+            </div>
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-secondary">License Plate</label>
+              <p className="text-lg">{driver?.carPlateNumber || 'N/A'}</p>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-bold mb-4">Account Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-secondary">Email Verified</label>
+                <p className={`text-lg ${driver?.emailVerified ? 'text-green-600' : 'text-red-600'}`}>
+                  {driver?.emailVerified ? '✓ Verified' : '✗ Not Verified'}
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-secondary">Member Since</label>
+                <p className="text-lg">
+                  {driver?.createdAt ? new Date(driver.createdAt).toLocaleDateString() : 'N/A'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+// Active Ride Card Component
+function ActiveRideCard({ ride }: { ride: any }) {
+  const router = useRouter()
+
+  return (
+    <div className="p-4 border rounded-lg">
+      <div>
+        <p className="font-medium">
+          {ride.pickupAddress} → {ride.dropoffAddress}
+        </p>
+        <p className="text-sm text-secondary">Status: {ride.status}</p>
+        <p className="text-sm text-secondary">
+          Passenger: {ride.passengers[0]?.firstName} {ride.passengers[0]?.lastName}
+        </p>
+      </div>
+      <div className="mt-4 flex gap-2 flex-wrap">
+        <button
+          onClick={() => router.push(`/driver/track-ride?rideId=${ride.id}`)}
+          className="btn bg-accent text-white hover:bg-green-700"
+        >
+          Track with Map
+        </button>
+        <button
+          onClick={() => window.open(`/driver/chat?rideId=${ride.id}`, '_blank')}
+          className="btn btn-outline"
+        >
+          Chat
+        </button>
+      </div>
+    </div>
+  )
+}
+
