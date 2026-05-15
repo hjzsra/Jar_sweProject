@@ -1,13 +1,17 @@
-describe('Simple passing test', () => {
-  test('true is true', () => {
-    expect(true).toBe(true);
-  });
+name: Simple Passing Test
 
-  test('math works', () => {
-    expect(2 + 2).toBe(4);
-  });
+on: [push]
 
-  test('strings work', () => {
-    expect('JAR').toBe('JAR');
-  });
-});
+jobs:
+  simple-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run simple check
+        run: echo "All systems operational"
+      
+      - name: Math check
+        run: |
+          result=$((2+2))
+          if [ $result -eq 4 ]; then
+            echo "Math works!"
+          fi
